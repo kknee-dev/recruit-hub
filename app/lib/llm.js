@@ -8,9 +8,8 @@
 const https = require('node:https');
 const config = require('../config');
 
-// WorkBuddy 2026-08-12：LLM_PROVIDER=deepseek 时走 DeepSeek（DEEPSEEK_*），默认混元（HUNYUAN_*）
-const PROVIDER = (process.env.LLM_PROVIDER || 'hunyuan').toLowerCase();
-const P = PROVIDER === 'deepseek' ? 'DEEPSEEK' : 'HUNYUAN';
+// 2026-08-14：统一走 DeepSeek 官方（DEEPSEEK_*，模型 deepseek-v4-flash），原混元已移除
+const P = 'DEEPSEEK';
 
 const MAX_RETRY = 3;
 const SOCKET_TIMEOUT_MS = 60000;

@@ -1,5 +1,5 @@
 // 极简 .env 加载（零依赖，仅当文件存在时；.env 文件优先于已存在的 process.env）
-// 说明：强制覆盖，避免外部 shell 环境里混入的残缺/错误同名变量（如 HUNYUAN_SECRET_KEY）
+// 说明：强制覆盖，避免外部 shell 环境里混入的残缺/错误同名变量（如 DEEPSEEK_SECRET_KEY）
 //       导致签名失败；部署侧 /opt/xiaozhaobao/.env 由 systemd EnvironmentFile 注入，取值一致。
 try {
   const fs = require('node:fs');
@@ -46,11 +46,12 @@ module.exports = {
   CODE_TTL_MIN: 10,          // 验证码有效期（分钟）
   CODE_RESEND_SEC: 60,       // 重发间隔（秒）
   // 腾讯混元大模型（主观题自动评分与个性化指导），走腾讯云 TokenHub OpenAI 兼容端点。
-  // 鉴权：Bearer Token（TokenHub 独立 API Key，形如 sk-...），非腾讯云 SecretId/Key。
-  // 获取方式：腾讯云 TokenHub 控制台创建 API Key；缺失时主观题降级为「对照要点自评 + 展示参考答案」。
-  HUNYUAN_API_KEY: process.env.HUNYUAN_API_KEY || '',
-  HUNYUAN_ENDPOINT: process.env.HUNYUAN_ENDPOINT || 'https://tokenhub.tencentmaas.com/v1/chat/completions',
-  HUNYUAN_MODEL: process.env.HUNYUAN_MODEL || 'hy3',
+  // DeepSeek 官方大模型（岗位说明书/主观题评分等 AI 功能），OpenAI 兼容端点。
+  // 鉴权：Bearer Token（DeepSeek 开放平台 API Key，形如 sk-...）。
+  // 获取方式：https://platform.deepseek.com 创建 API Key；缺失时主观题降级为「对照要点自评 + 展示参考答案」。
+  DEEPSEEK_API_KEY: process.env.DEEPSEEK_API_KEY || '',
+  DEEPSEEK_ENDPOINT: process.env.DEEPSEEK_ENDPOINT || 'https://api.deepseek.com/chat/completions',
+  DEEPSEEK_MODEL: process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash',
   // 练习：得分低于该阈值(0~100)标记进入错题集
   WRONG_SCORE_THRESHOLD: process.env.WRONG_SCORE_THRESHOLD ? Number(process.env.WRONG_SCORE_THRESHOLD) : 60,
   // 每份练习卷题数（按 80% 笔试 + 20% 面试 随机组卷）

@@ -1421,8 +1421,29 @@ const ssrSend = (fn, ...args) => (req, res) => {
   res.end(fn(...args, host));
 };
 
-// 开源版：根路径 = 校招首页（主项目线上为公安备案博客，开源版直接展示产品）
-app.get('/', ssrSend(renderHome, db));
+// ---------- 公安备案博客站点（域名根路径展示，与 /xzb2026 校招宝隔离）----------
+// 纯静态 HTML（app/filing/），自包含内联样式，尾部含 ICP 备案号，供公安备案审核访问。
+const FILING_DIR = path.join(__dirname, 'filing');
+function serveFiling(res, file) {
+  const fp = path.join(FILING_DIR, file);
+  fs.readFile(fp, 'utf8', (err, html) => {
+    if (err) {
+      res.statusCode = 404;
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      return res.end('Not Found');
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache'); // 备案页变更后立即生效
+    res.end(html);
+  });
+}
+const BLOG_PAGES = ['resume-writing', 'resume-delivery', 'written-test', 'interview-skills', 'salary-negotiation', 'onboarding-prep', 'job-resources'];
+// 根路径 = 备案博客首页；其余博客子页显式路由，优先于 catch-all（校招宝 SPA）。
+app.get('/', (req, res) => serveFiling(res, 'index.html'));
+for (const p of BLOG_PAGES) {
+  app.get('/' + p, (req, res) => serveFiling(res, p + '.html'));
+  app.get('/' + p + '/', (req, res) => serveFiling(res, p + '.html'));
+}
 
 app.get('/companies', ssrSend(renderCompanies, db));
 app.get('/expired', ssrSend(renderExpired, db));

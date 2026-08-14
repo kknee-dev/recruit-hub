@@ -231,10 +231,11 @@ function batchUpsert(rows) {
       const fp = computeFingerprint(company, position, batch, ddl, city);
       const today = todayCN();
       const firstSeen = String(row.first_seen || today).trim();
-      // URL 级防新增：同公司 + 同文章链接（按 urlKey 归一）已存在 → 跳过（同公告变体不再重复累积）
+      // URL 级防新增：**仅对新增记录**（fingerprint 未命中）做同公司+同文章链接判重；
+      // 已存在记录的字段更新（如 apply_url 回补）必须放行走 UPDATE，否则被误 skip
       const noticeUrlRaw = String(row.notice_url || '').trim();
       const noticeUrl = isBadLink(noticeUrlRaw) ? '' : noticeUrlRaw;
-      if (noticeUrl && isArticleUrl(noticeUrl)) {
+      if (!existed && noticeUrl && isArticleUrl(noticeUrl)) {
         const keys = urlIdx.get(company);
         if (keys && keys.has(urlKey(noticeUrl))) { skipped++; continue; }
       }
@@ -306,9 +307,9 @@ function importCSV(text) {
       const { url, type } = cleanUrl(g(r, C.apply));
       const fp = computeFingerprint(company, position, batch, ddl, city);
       const existed = existsStmt.get(fp);
-      // URL 级防新增：同公司 + 同文章链接（urlKey 归一）已存在 → 跳过，不再累积同公告变体
+      // URL 级防新增：仅对新增记录（fingerprint 未命中）判重；已存在记录放行 UPDATE（同上）
       const noticeTxt = g(r, C.notice);
-      if (noticeTxt && isArticleUrl(noticeTxt)) {
+      if (!existed && noticeTxt && isArticleUrl(noticeTxt)) {
         const keys = urlIdx.get(company);
         if (keys && keys.has(urlKey(noticeTxt))) { continue; }
       }

@@ -93,7 +93,7 @@ recruit-hub/
 | `ADMIN_KEY` | 管理后台密钥（不填则管理接口不可用） | - |
 | `JWT_SECRET` | 登录令牌密钥（不填则随机生成） | - |
 | `SMTP_*` / `MAIL_FROM` | 邮件发送（不填则验证码走演示模式） | - |
-| `HUNYUAN_*` / `DEEPSEEK_*` | 大模型（不填则 AI 功能降级） | - |
+| `DEEPSEEK_*` | DeepSeek 大模型（不填则 AI 功能降级） | - |
 
 ## 🌐 在线体验与托管服务
 

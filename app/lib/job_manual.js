@@ -121,7 +121,7 @@ async function generate(job, profile) {
     db.prepare(
       `INSERT INTO job_manuals (fingerprint, company, position, industry, title, content, model, source)
        VALUES (?,?,?,?,?,?,?,?)`
-    ).run(fp, job.company || '', job.position || '', job.industry || '', title, content, config.HUNYUAN_MODEL || 'hy3', 'ai');
+    ).run(fp, job.company || '', job.position || '', job.industry || '', title, content, config.DEEPSEEK_MODEL || 'deepseek-v4-flash', 'ai');
   } catch (e) {
     // 唯一约束冲突：并发首次生成，忽略，下次命中缓存
   }
