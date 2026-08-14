@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS posts (
   type TEXT DEFAULT '面经',
   title TEXT NOT NULL,
   content TEXT NOT NULL,
+  essence TEXT,                  -- 牛客精华提炼（JSON），由 extract_post_essence/apply_essence 脚本写入
   status TEXT DEFAULT 'pending',
   created_at TEXT DEFAULT (datetime('now','localtime'))
 );
@@ -165,7 +166,8 @@ CREATE TABLE IF NOT EXISTS company_profiles (
   intro TEXT,
   locations TEXT,
   website TEXT,
-  logo TEXT
+  logo TEXT,
+  campus_recruit TEXT           -- 公司校招画像（公众号官方公告自动提炼，JSON）
 );
 
 -- 逐公告「本次招聘画像」：按 notice_url 存该条官方公告对应的校招画像（与 company_profiles.campus_recruit 企业级概览分离，避免一条公告画像套到企业所有岗位）
@@ -180,7 +182,8 @@ CREATE INDEX IF NOT EXISTS idx_nr_company ON notice_recruit(company);
 
 CREATE TABLE IF NOT EXISTS company_index (
   slug TEXT PRIMARY KEY,
-  name TEXT NOT NULL UNIQUE
+  name TEXT NOT NULL UNIQUE,
+  apply_url TEXT                -- 官方投递入口（Campus2026 公司级入口，脚本导入）
 );
 
 CREATE TABLE IF NOT EXISTS job_tracks (
@@ -396,6 +399,11 @@ try { db.exec('ALTER TABLE jobs ADD COLUMN position_list TEXT'); } catch { /* �
 try { db.exec('ALTER TABLE company_profiles ADD COLUMN locked INTEGER DEFAULT 0'); } catch { /* 列已存在 */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN locked INTEGER DEFAULT 0'); } catch { /* 列已存在 */ }
 try { db.exec('ALTER TABLE jobs ADD COLUMN updated_at TEXT'); } catch { /* 列已存在 */ }
+// 新装库补齐列：posts.essence / company_index.apply_url / company_profiles.campus_recruit
+// （生产库由脚本 ALTER 加过列，此处保证全新 clone 的库 schema 与查询一致，避免 "no such column" 500）
+try { db.exec('ALTER TABLE posts ADD COLUMN essence TEXT'); } catch { /* 列已存在 */ }
+try { db.exec('ALTER TABLE company_index ADD COLUMN apply_url TEXT'); } catch { /* 列已存在 */ }
+try { db.exec('ALTER TABLE company_profiles ADD COLUMN campus_recruit TEXT'); } catch { /* 列已存在 */ }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_source ON jobs(source)'); } catch { /* ignore */ }
 try { db.exec('CREATE INDEX IF NOT EXISTS idx_jobs_firstseen ON jobs(first_seen)'); } catch { /* ignore */ }
 

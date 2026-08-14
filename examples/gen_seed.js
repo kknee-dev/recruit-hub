@@ -124,7 +124,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   locked INTEGER DEFAULT 0, quality_score INTEGER, updated_at TEXT
 );
 CREATE TABLE IF NOT EXISTS company_profiles (
-  name TEXT PRIMARY KEY, intro TEXT, locations TEXT, website TEXT, logo TEXT
+  name TEXT PRIMARY KEY, intro TEXT, locations TEXT, website TEXT, logo TEXT,
+  campus_recruit TEXT
 );
 `);
 const ins = db.prepare('INSERT INTO jobs (company, company_type, industry, position, batch, city, education, grad_year, publish_date, deadline, apply_url, exam, fingerprint, added_date, parent_company) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
