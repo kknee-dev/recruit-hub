@@ -1,0 +1,13 @@
+# recruit-hub（校招宝开源版）
+
+> 零依赖 Node + SQLite 的校园招聘信息聚合站：岗位检索、企业档案、求职攻略、岗位练习与薪资参考。
+
+## Core Pages
+- [README](https://github.com/<your-org>/recruit-hub): 项目简介、一键体验与部署说明
+- [Documentation](https://<your-org>.github.io/recruit-hub/): 使用与开发文档
+- [API 示例](/api/jobs?q=&city=&page=): 公开只读岗位检索接口
+- [演示数据生成器](/examples/gen_seed.js): 生成完全脱敏的演示数据
+
+## Notes
+- 演示数据完全脱敏（虚构公司名），真实数据需自行接入数据源（README「数据管道」章节）。
+- 开源版（recruit-hub）与线上运营站校招宝独立；本仓库不包含任何真实用户数据。

@@ -1,0 +1,23 @@
+# 环境与密钥（绝不提交）
+.env
+.env.*
+!.env.example
+# 数据库（演示库除外）
+*.db
+*.db-*
+*.db.bak*
+*.sqlite
+*.sqlite-*
+!examples/seed.sqlite
+# 日志
+logs/
+*.log
+# 数据/临时
+tools/
+output/
+data/
+tmp/
+*.tmp
+# 系统
+.DS_Store
+Thumbs.db
