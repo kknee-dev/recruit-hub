@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>校招宝 · 管理后台</title>
+<style>
+  body { font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f6fa; margin: 0; color: #23262f; }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 20px; } h2 { font-size: 15px; color: #666; margin: 24px 0 10px; }
+  .card { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 1px 4px rgba(30,41,80,.06); margin-bottom: 14px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .stat { background: #eef1ff; border-radius: 10px; padding: 12px; text-align: center; cursor: pointer; transition: transform .08s, box-shadow .08s; border: 2px solid transparent; }
+  .stat:hover { transform: translateY(-2px); box-shadow: 0 3px 10px rgba(59,91,253,.18); border-color: #3b5bfd; }
+  .stat b { font-size: 22px; color: #3b5bfd; display: block; }
+  .stat span { font-size: 12px; color: #666; }
+  .stat .goto { display: block; font-size: 11px; color: #3b5bfd; margin-top: 4px; opacity: .75; }
+  input, button, select { font: inherit; padding: 8px 12px; border-radius: 8px; border: 1px solid #dde0ea; }
+  button { background: #3b5bfd; color: #fff; border: none; cursor: pointer; }
+  button.ghost { background: #eef1ff; color: #3b5bfd; }
+  button.red { background: #e5484d; }
+  button.mini { padding: 3px 8px; font-size: 12px; border-radius: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eceef3; word-break: break-all; vertical-align: top; }
+  .ok { color: #18a058; } .muted { color: #999; } .warn { color: #e5484d; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 11px; background: #eef1ff; color: #3b5bfd; margin-right: 4px; }
+  .tag.green { background: #e8f7ee; color: #18a058; }
+  .tag.gray { background: #f1f2f5; color: #888; }
+  .tag.red { background: #fdeeee; color: #e5484d; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center; }
+  .toolbar input[type=text] { flex: 1; min-width: 180px; }
+  .pager { display: flex; gap: 8px; margin-top: 12px; align-items: center; font-size: 13px; }
+  .pager button { padding: 4px 10px; font-size: 12px; }
+  #msg { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: rgba(20,22,30,.85); color: #fff; padding: 8px 16px; border-radius: 8px; display: none; z-index: 9; }
+  .post-content { white-space: pre-wrap; background: #f8f9fc; padding: 10px; border-radius: 8px; font-size: 13px; margin: 8px 0; max-height: 160px; overflow: auto; }
+  .detail-box { background: #f8f9fc; border-radius: 8px; padding: 10px 12px; font-size: 12px; margin: 6px 0; display: none; }
+  .back { margin-bottom: 12px; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+  .tabs button { background: #fff; color: #666; border: 1px solid #dde0ea; }
+  .tabs button.on { background: #3b5bfd; color: #fff; border-color: #3b5bfd; }
+  a { color: #3b5bfd; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎯 校招宝 · 管理后台</h1>
+  <div class="card" id="keycard">
+    <label>管理密钥：<input id="key" type="password" placeholder="ADMIN KEY" style="width:220px"></label>
+    <button onclick="saveKey()">进入</button>
+  </div>
+  <div id="panel" style="display:none">
+    <h2>📊 数据看板 <span class="muted" style="font-size:12px">（点击数字进入对应列表）</span></h2>
+    <div class="card"><div class="stats" id="stats"></div></div>
+
+    <!-- 在库信息列表 -->
+    <div id="view-jobs" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>📋 在库信息</h2>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="jobs-q" placeholder="搜公司 / 岗位 / 行业 / 母公司" onkeydown="if(event.key==='Enter')loadJobs()">
+          <select id="jobs-status" onchange="loadJobs()"><option value="active">正常</option><option value="dup">重复标记</option><option value="expired">已截止</option></select>
+          <button onclick="loadJobs()">搜索</button>
+          <span class="muted" id="jobs-total"></span>
+        </div>
+        <table id="jobs-table"></table>
+        <div class="pager" id="jobs-pager"></div>
+      </div>
+    </div>
+
+    <!-- 企业列表 -->
+    <div id="view-companies" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>🏢 企业列表</h2>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="co-q" placeholder="搜企业名称" onkeydown="if(event.key==='Enter')loadCompanies()">
+          <button onclick="loadCompanies()">搜索</button>
+          <span class="muted" id="co-total"></span>
+        </div>
+        <table id="co-table"></table>
+        <div class="pager" id="co-pager"></div>
+      </div>
+    </div>
+
+    <!-- 企业详情 -->
+    <div id="view-company-detail" class="view" style="display:none">
+      <button class="ghost back" onclick="showCompanies()">← 返回企业列表</button>
+      <h2 id="cd-title">企业详情</h2>
+      <div id="cd-body"></div>
+    </div>
+
+    <!-- 用户列表 -->
+    <div id="view-users" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>👥 用户管理</h2>
+      <div class="card">
+        <div class="toolbar">
+          <input type="text" id="users-q" placeholder="搜邮箱" onkeydown="if(event.key==='Enter')loadUsers()">
+          <button onclick="loadUsers()">搜索</button>
+          <span class="muted" id="users-total"></span>
+        </div>
+        <table id="users"></table>
+      </div>
+    </div>
+
+    <!-- 订阅列表 -->
+    <div id="view-subs" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>📮 订阅列表</h2>
+      <div class="card">
+        <table id="subs-table"></table>
+      </div>
+    </div>
+
+    <!-- 订单列表 -->
+    <div id="view-orders" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>💰 订单列表</h2>
+      <div class="card">
+        <table id="orders-table"></table>
+      </div>
+    </div>
+
+    <!-- 笔面经审核 -->
+    <div id="view-posts" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>📝 笔面经审核</h2>
+      <div class="card">
+        <div class="tabs">
+          <button class="on" data-st="pending" onclick="loadPosts('pending',this)">待审核</button>
+          <button data-st="approved" onclick="loadPosts('approved',this)">已通过</button>
+          <button data-st="rejected" onclick="loadPosts('rejected',this)">已拒绝</button>
+        </div>
+        <div id="posts"></div>
+      </div>
+    </div>
+
+    <!-- 待办建议 -->
+    <div id="view-suggestions" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>💡 待办建议 <span class="muted" style="font-size:12px">（反馈/错误自动沉淀，等待你判断执行）</span></h2>
+      <div class="card">
+        <div class="tabs">
+          <button class="on" data-st="pending" onclick="loadSuggestions('pending',this)">待判断</button>
+          <button data-st="accepted" onclick="loadSuggestions('accepted',this)">已接受</button>
+          <button data-st="rejected" onclick="loadSuggestions('rejected',this)">已拒绝</button>
+          <button data-st="done" onclick="loadSuggestions('done',this)">已完成</button>
+        </div>
+        <div id="suggestions"></div>
+      </div>
+    </div>
+
+    <!-- 运行错误 -->
+    <div id="view-errors" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>🛠 运行错误日志</h2>
+      <div class="card">
+        <div class="tabs">
+          <button class="on" data-st="" onclick="loadErrors('',this)">全部</button>
+          <button data-st="flagged" onclick="loadErrors('flagged',this)">待处理</button>
+          <button data-st="recovered" onclick="loadErrors('recovered',this)">已自愈</button>
+        </div>
+        <div id="errors"></div>
+      </div>
+    </div>
+
+    <!-- 用户反馈 -->
+    <div id="view-feedback" class="view" style="display:none">
+      <button class="ghost back" onclick="showDash()">← 返回看板</button>
+      <h2>📣 用户反馈</h2>
+      <div class="card">
+        <div class="tabs">
+          <button class="on" data-st="new" onclick="loadFeedback('new',this)">新反馈</button>
+          <button data-st="reviewed" onclick="loadFeedback('reviewed',this)">已分析</button>
+        </div>
+        <div id="feedback"></div>
+      </div>
+    </div>
+
+    <h2>📥 导入招聘数据（CSV）</h2>
+    <div class="card">
+      <input type="file" id="csvfile" accept=".csv">
+      <button onclick="doImport()">上传并导入</button>
+      <span class="muted">自动过滤水印行、指纹去重，重复数据不会重复入库</span>
+      <div id="importres" style="margin-top:10px"></div>
+    </div>
+  </div>
+</div>
+<div id="msg"></div>
+<script>
+const $ = s => document.querySelector(s);
+let KEY = localStorage.getItem('xzb_admin_key') || '';
+if (KEY) { $('#key').value = KEY; boot(); }
+function msg(t) { const m = $('#msg'); m.textContent = t; m.style.display = 'block'; setTimeout(() => m.style.display = 'none', 2500); }
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'x-admin-key': KEY, 'Content-Type': 'application/json' }, opts.headers || {});
+  if (opts.body instanceof FormData) delete opts.headers['Content-Type'];
+  const r = await fetch(path, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || '请求失败');
+  return d;
+}
+function saveKey() { KEY = $('#key').value.trim(); localStorage.setItem('xzb_admin_key', KEY); boot(); }
+
+// ---------- 看板 ----------
+let VIEW = 'dash';
+function showDash() {
+  VIEW = 'dash';
+  document.querySelectorAll('.view').forEach(v => v.style.display = 'none');
+  boot(true);
+}
+function openView(v) {
+  VIEW = v;
+  document.querySelectorAll('.view').forEach(x => x.style.display = 'none');
+  // v 传短名（jobs/companies/users/subs/orders/posts/company-detail），统一拼 view- 前缀
+  const el = $('#view-' + v);
+  if (!el) { msg('视图不存在: ' + v); return; }
+  el.style.display = 'block';
+  window.scrollTo(0, 0);
+  // 按视图触发对应数据加载（2026-08-09 修复：点击统计卡后自动加载列表）
+  if (v === 'jobs') loadJobs(1);
+  else if (v === 'companies') loadCompanies(1);
+  else if (v === 'users') loadUsers();
+  else if (v === 'subs') loadSubs();
+  else if (v === 'orders') loadOrders();
+  else if (v === 'posts') loadPosts();
+  else if (v === 'suggestions') loadSuggestions();
+  else if (v === 'errors') loadErrors();
+  else if (v === 'feedback') loadFeedback();
+}
+async function boot(silent) {
+  try {
+    const s = await api('/api/admin/stats');
+    $('#panel').style.display = 'block';
+    $('#keycard').style.display = 'none';
+    const items = [
+      ['jobs','在库信息','jobs'], ['companies','企业数','companies'], ['today_added','今日新增','jobs'],
+      ['users','注册用户','users'], ['paid_users','付费用户','users'], ['subs','订阅数','subs'],
+      ['orders_paid','成交订单','orders'], ['pending_posts','待审笔面经','posts'],
+      ['pending_suggestions','待办建议','suggestions'], ['open_errors','运行错误','errors'], ['new_feedback','新反馈','feedback']
+    ];
+    $('#stats').innerHTML = items.map(([k, l, v]) => '<div class="stat" onclick="openView(\'' + v + '\')"><b>' + s[k] + '</b><span>' + l + '</span><span class="goto">进入查看 ›</span></div>').join('');
+    if (VIEW === 'dash' || silent) { /* 看板视图不需要自动加载列表 */ }
+  } catch (e) { if (!silent) { msg(e.message); $('#panel').style.display = 'none'; } }
+}
+
+// ---------- 在库信息 ----------
+let jobsPage = 1;
+async function loadJobs(page) {
+  jobsPage = page || jobsPage;
+  try {
+    const q = $('#jobs-q').value.trim();
+    const status = $('#jobs-status').value;
+    const d = await api('/api/admin/jobs?page=' + jobsPage + '&size=20&status=' + status + (q ? '&q=' + encodeURIComponent(q) : ''));
+    $('#jobs-total').textContent = '共 ' + d.total + ' 条';
+    $('#jobs-table').innerHTML = '<tr><th>ID</th><th>公司</th><th>岗位</th><th>批次</th><th>城市</th><th>截止</th><th>来源</th><th>状态</th><th>操作</th></tr>' +
+      d.list.map(j => '<tr>' +
+        '<td>' + j.id + '</td>' +
+        '<td><b>' + j.company + '</b>' + (j.parent_company && j.parent_company !== j.company ? '<br><span class="muted">' + j.parent_company + '</span>' : '') + '</td>' +
+        '<td>' + esc(j.position) + '</td>' +
+        '<td>' + esc(j.batch) + '</td>' +
+        '<td>' + esc((j.city || '').split(',').slice(0,3).join('/')) + '</td>' +
+        '<td>' + esc(j.deadline || '-') + '</td>' +
+        '<td>' + esc(j.source || '整理') + '</td>' +
+        '<td>' + (j.status === 'active' ? '<span class="tag green">正常</span>' : j.status === 'dup' ? '<span class="tag gray">重复</span>' : '<span class="tag red">已删除</span>') + '</td>' +
+        '<td><button class="ghost mini" onclick="toggleJobDetail(' + j.id + ')">详情</button> ' +
+          '<a class="mini" target="_blank" href="/job/' + j.id + '">前台</a>' +
+          (j.status === 'active' ? ' <button class="red mini" onclick="setJobStatus(' + j.id + ',\'dup\',' + j.id + ')">标重复</button>' : ' <button class="ghost mini" onclick="setJobStatus(' + j.id + ',\'active\')">恢复</button>') +
+        '</td></tr>' +
+        '<tr id="jobdetail-' + j.id + '" class="detail-row" style="display:none"><td colspan="9"><div class="detail-box" style="display:block">' + jobDetailHtml(j) + '</div></td></tr>'
+      ).join('');
+    renderPager('jobs', d);
+  } catch (e) { msg(e.message); }
+}
+function jobDetailHtml(j) {
+  const lines = [
+    ['公司', j.company], ['母公司', j.parent_company], ['岗位', j.position], ['批次', j.batch],
+    ['城市', j.city], ['届别', j.grad_year], ['学历', j.education], ['笔试', j.exam],
+    ['发布', j.publish_date], ['截止', j.deadline], ['加入日期', j.added_date], ['来源', j.source],
+    ['备注', j.remark], ['内推码', j.referral_code]
+  ].filter(x => x[1]);
+  return lines.map(([k, v]) => '<div><b>' + k + '：</b>' + esc(v) + '</div>').join('') +
+    (j.notice_url ? '<div><b>公告：</b><a href="' + esc(j.notice_url) + '" target="_blank" rel="noopener">' + esc(j.notice_url) + '</a></div>' : '') +
+    (j.apply_url ? '<div><b>投递：</b><a href="' + esc(j.apply_url) + '" target="_blank" rel="noopener">' + esc(j.apply_url) + '</a></div>' : '');
+}
+function toggleJobDetail(id) {
+  const row = $('#jobdetail-' + id);
+  row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+async function setJobStatus(id, status, dupOf) {
+  if (status === 'dup' && !confirm('标记为重复记录（将从前台隐藏）？')) return;
+  if (status === 'deleted' && !confirm('确定删除该记录（不可恢复）？')) return;
+  try {
+    await api('/api/admin/jobs/' + id + '/status', { method: 'POST', body: JSON.stringify({ status, dup_of: dupOf }) });
+    msg('已更新'); loadJobs(); boot(true);
+  } catch (e) { msg(e.message); }
+}
+
+// ---------- 企业 ----------
+let coPage = 1;
+async function loadCompanies(page) {
+  coPage = page || coPage;
+  try {
+    const q = $('#co-q').value.trim();
+    const d = await api('/api/admin/companies?page=' + coPage + '&size=20' + (q ? '&q=' + encodeURIComponent(q) : ''));
+    $('#co-total').textContent = '共 ' + d.total + ' 家企业';
+    $('#co-table').innerHTML = '<tr><th>企业</th><th>在招数</th><th>类型</th><th>行业</th><th>批次</th><th>操作</th></tr>' +
+      d.list.map(c => '<tr>' +
+        '<td><b>' + esc(c.name) + '</b></td>' +
+        '<td>' + c.job_count + '</td>' +
+        '<td>' + esc(c.company_type || '') + '</td>' +
+        '<td>' + esc(c.industry || '') + '</td>' +
+        '<td>' + esc((c.batches || '').split(',').slice(0,2).join('/')) + '</td>' +
+        '<td><button class="ghost mini" onclick="openCompany(\'' + esc(c.name) + '\')">详情</button> <a class="mini" target="_blank" href="/company/' + esc(c.slug) + '">前台</a></td></tr>'
+      ).join('');
+    renderPager('co', d);
+  } catch (e) { msg(e.message); }
+}
+async function openCompany(name) {
+  try {
+    const d = await api('/api/admin/companies/' + encodeURIComponent(name));
+    $('#cd-title').textContent = '🏢 ' + d.name + '（' + d.jobs.length + ' 条记录）';
+    const members = d.members && d.members.length ? '<div class="card"><h2 style="margin-top:0">成员企业</h2>' + d.members.map(m => '<span class="tag">' + esc(m) + '</span>').join('') + '</div>' : '';
+    const jobs = '<div class="card"><h2 style="margin-top:0">招聘记录</h2><table><tr><th>ID</th><th>公司</th><th>岗位</th><th>批次</th><th>截止</th><th>状态</th><th>操作</th></tr>' +
+      d.jobs.map(j => '<tr><td>' + j.id + '</td><td>' + esc(j.company) + '</td><td>' + esc(j.position) + '</td><td>' + esc(j.batch) + '</td><td>' + esc(j.deadline || '-') + '</td>' +
+      '<td>' + (j.status === 'active' ? '<span class="tag green">正常</span>' : '<span class="tag gray">' + esc(j.status) + '</span>') + '</td>' +
+      '<td><a class="mini" target="_blank" href="/job/' + j.id + '">查看</a></td></tr>').join('') + '</table></div>';
+    const posts = '<div class="card"><h2 style="margin-top:0">笔面经（' + d.posts.length + '）</h2>' +
+      (d.posts.length ? d.posts.map(p => '<div style="padding:6px 0;border-bottom:1px solid #eceef3"><b>【' + esc(p.type) + '】' + esc(p.title) + '</b> <span class="tag ' + (p.status === 'approved' ? 'green' : p.status === 'pending' ? '' : 'gray') + '">' + esc(p.status) + '</span> <span class="muted">' + esc(p.email) + '</span></div>').join('') : '<span class="muted">暂无</span>') + '</div>';
+    $('#cd-body').innerHTML = members + jobs + posts;
+    openView('company-detail');
+  } catch (e) { msg(e.message); }
+}
+function showCompanies() { openView('companies'); }
+
+// ---------- 用户 ----------
+async function loadUsers() {
+  try {
+    const q = $('#users-q').value.trim();
+    const d = await api('/api/admin/users' + (q ? '?q=' + encodeURIComponent(q) : ''));
+    $('#users-total').textContent = '显示 ' + d.list.length + ' 名用户';
+    $('#users').innerHTML = '<tr><th>ID</th><th>邮箱</th><th>注册</th><th>试用到期</th><th>会员到期</th><th>操作</th></tr>' +
+      d.list.map(u => '<tr><td>' + u.id + '</td><td>' + esc(u.email) + '</td><td>' + (u.created_at || '').slice(0, 10) + '</td><td>' + (u.trial_end || '').slice(0, 10) + '</td><td>' + ((u.paid_end || '').slice(0, 10) || '<span class="muted">-</span>') + '</td>' +
+      '<td><button class="ghost mini" onclick="grant(' + u.id + ',365)">+1年</button> <button class="ghost mini" onclick="grant(' + u.id + ',30)">+30天</button></td></tr>').join('');
+  } catch (e) { msg(e.message); }
+}
+async function grant(id, days) { await api('/api/admin/users/' + id + '/grant', { method: 'POST', body: JSON.stringify({ days }) }); msg('已开通'); loadUsers(); boot(true); }
+
+// ---------- 订阅 ----------
+async function loadSubs() {
+  try {
+    const d = await api('/api/admin/subscriptions');
+    $('#subs-table').innerHTML = '<tr><th>ID</th><th>用户</th><th>名称</th><th>筛选条件</th><th>状态</th><th>创建</th><th>操作</th></tr>' +
+      d.list.map(s => '<tr>' +
+        '<td>' + s.id + '</td>' +
+        '<td>' + esc(s.email) + '</td>' +
+        '<td>' + esc(s.name || '-') + '</td>' +
+        '<td>' + (s.filters ? '<div class="muted" style="font-size:12px">' + esc(JSON.stringify(s.filters)).replace(/"/g, '') + '</div>' : esc(s.filters_json || '')) + '</td>' +
+        '<td>' + (s.enabled ? '<span class="tag green">启用</span>' : '<span class="tag gray">停用</span>') + '</td>' +
+        '<td>' + (s.created_at || '').slice(0, 10) + '</td>' +
+        '<td><button class="ghost mini" onclick="toggleSub(' + s.id + ')">' + (s.enabled ? '停用' : '启用') + '</button> <button class="red mini" onclick="delSub(' + s.id + ')">删除</button></td></tr>'
+      ).join('');
+  } catch (e) { msg(e.message); }
+}
+async function toggleSub(id) { await api('/api/admin/subscriptions/' + id + '/toggle', { method: 'POST' }); msg('已切换'); loadSubs(); }
+async function delSub(id) { if (!confirm('确定删除该订阅？')) return; await api('/api/admin/subscriptions/' + id, { method: 'DELETE' }); msg('已删除'); loadSubs(); boot(true); }
+
+// ---------- 订单 ----------
+async function loadOrders() {
+  try {
+    const d = await api('/api/admin/orders');
+    $('#orders-table').innerHTML = '<tr><th>ID</th><th>用户</th><th>金额</th><th>状态</th><th>创建时间</th><th>支付时间</th></tr>' +
+      d.list.map(o => '<tr><td>' + o.id + '</td><td>' + esc(o.email) + '</td><td>¥' + o.amount + '</td>' +
+      '<td>' + (o.status === 'paid' ? '<span class="tag green">已支付</span>' : '<span class="tag gray">' + esc(o.status) + '</span>') + '</td>' +
+      '<td>' + esc(o.created_at || '') + '</td><td>' + esc(o.paid_at || '-') + '</td></tr>').join('');
+  } catch (e) { msg(e.message); }
+}
+
+// ---------- 笔面经 ----------
+async function loadPosts(status, btn) {
+  status = status || 'pending';
+  document.querySelectorAll('#view-posts .tabs button').forEach(b => b.classList.toggle('on', b.dataset.st === status));
+  try {
+    const d = await api('/api/admin/posts?status=' + status);
+    $('#posts').innerHTML = d.list.length ? d.list.map(p =>
+      '<div style="border-bottom:1px solid #eceef3;padding:10px 0"><b>【' + esc(p.type) + '】' + esc(p.title) + '</b> <span class="muted">' + esc(p.company) + ' · ' + esc(p.email) + '</span>' +
+      '<div class="post-content">' + esc(p.content) + '</div>' +
+      (status === 'pending' ? '<button class="mini" onclick="review(' + p.id + ',1)">通过</button> <button class="red mini" onclick="review(' + p.id + ',0)">拒绝</button>' : '')
+      + '</div>'
+    ).join('') : '<span class="muted">暂无内容</span>';
+  } catch (e) { msg(e.message); }
+}
+async function review(id, ok) { await api('/api/admin/posts/' + id + '/review', { method: 'POST', body: JSON.stringify({ approve: !!ok }) }); msg('已处理'); loadPosts(); boot(true); }
+
+// ---------- 待办建议 ----------
+async function loadSuggestions(status, btn) {
+  status = status || 'pending';
+  if (btn) document.querySelectorAll('#view-suggestions .tabs button').forEach(b => b.classList.toggle('on', b.dataset.st === status));
+  else document.querySelectorAll('#view-suggestions .tabs button').forEach(b => b.classList.toggle('on', b.dataset.st === status));
+  try {
+    const d = await api('/api/admin/suggestions?status=' + status);
+    $('#suggestions').innerHTML = d.list.length ? d.list.map(s =>
+      '<div style="border-bottom:1px solid #eceef3;padding:10px 0">' +
+      '<div><b>' + esc(s.title) + '</b> <span class="tag ' + (s.priority === '高' ? 'red' : s.priority === '中' ? '' : 'gray') + '">' + esc(s.priority) + '</span> <span class="tag gray">' + esc(s.source) + '</span> <span class="muted">' + (s.ts || '').slice(0, 16) + '</span></div>' +
+      '<div class="post-content">' + esc(s.detail) + '</div>' +
+      (status === 'pending' ? '<button class="mini" onclick="resolveSuggestion(' + s.id + ',`accept`)">接受</button> <button class="mini" onclick="resolveSuggestion(' + s.id + ',`done`)">已完成</button> <button class="red mini" onclick="resolveSuggestion(' + s.id + ',`reject`)">拒绝</button>' : '<span class="muted">状态：' + esc(s.status) + (s.note ? ' · ' + esc(s.note) : '') + '</span>') +
+      '</div>'
+    ).join('') : '<span class="muted">暂无内容</span>';
+  } catch (e) { msg(e.message); }
+}
+async function resolveSuggestion(id, action) {
+  const note = action === 'reject' ? prompt('拒绝原因（选填）：') || '' : '';
+  await api('/api/admin/suggestions/' + id + '/resolve', { method: 'POST', body: JSON.stringify({ action, note }) });
+  msg('已更新'); loadSuggestions(); boot(true);
+}
+
+// ---------- 运行错误 ----------
+async function loadErrors(status, btn) {
+  status = status || '';
+  document.querySelectorAll('#view-errors .tabs button').forEach(b => b.classList.toggle('on', b.dataset.st === (status || '')));
+  try {
+    const d = await api('/api/admin/errors?status=' + encodeURIComponent(status) + '&limit=100');
+    $('#errors').innerHTML = d.list.length ? d.list.map(e =>
+      '<div style="border-bottom:1px solid #eceef3;padding:8px 0;font-size:12px">' +
+      '<div><span class="tag ' + (e.severity === 'critical' || e.severity === 'error' ? 'red' : e.severity === 'warn' ? '' : 'gray') + '">' + esc(e.severity) + '</span> <span class="tag">' + esc(e.kind) + '</span> <span class="tag gray">' + esc(e.status) + '</span> <span class="muted">' + (e.ts || '').slice(0, 19) + '</span> <span class="muted">' + esc(e.method) + ' ' + esc(e.route) + '</span></div>' +
+      '<div class="muted" style="margin-top:3px">' + esc(e.message) + (e.auto_action ? ' · 自动处置：' + esc(e.auto_action) + '/' + esc(e.auto_result) : '') + '</div>' +
+      (e.stack ? '<div class="detail-box" style="display:block;white-space:pre-wrap">' + esc(e.stack) + '</div>' : '') +
+      '</div>'
+    ).join('') : '<span class="muted">暂无错误</span>';
+  } catch (e) { msg(e.message); }
+}
+
+// ---------- 用户反馈 ----------
+async function loadFeedback(status, btn) {
+  status = status || 'new';
+  document.querySelectorAll('#view-feedback .tabs button').forEach(b => b.classList.toggle('on', b.dataset.st === status));
+  try {
+    const d = await api('/api/admin/feedback?status=' + status);
+    $('#feedback').innerHTML = d.list.length ? d.list.map(f =>
+      '<div style="border-bottom:1px solid #eceef3;padding:8px 0">' +
+      '<div><span class="tag">' + esc(f.category) + '</span> <span class="muted">' + (f.ts || '').slice(0, 16) + '</span> <span class="muted">' + esc(f.page) + '</span></div>' +
+      '<div class="post-content">' + esc(f.text) + '</div>' +
+      '</div>'
+    ).join('') : '<span class="muted">暂无反馈</span>';
+  } catch (e) { msg(e.message); }
+}
+
+// ---------- 工具 ----------
+function renderPager(prefix, d) {
+  const pages = Math.max(1, Math.ceil(d.total / d.size));
+  const el = $('#' + prefix + '-pager');
+  if (pages <= 1) { el.innerHTML = ''; return; }
+  el.innerHTML = '<button ' + (d.page > 1 ? 'onclick="' + (prefix === 'jobs' ? 'loadJobs' : 'loadCompanies') + '(' + (d.page - 1) + ')"' : 'disabled') + '>上一页</button>' +
+    '<span>第 ' + d.page + '/' + pages + ' 页</span>' +
+    '<button ' + (d.page < pages ? 'onclick="' + (prefix === 'jobs' ? 'loadJobs' : 'loadCompanies') + '(' + (d.page + 1) + ')"' : 'disabled') + '>下一页</button>';
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+async function doImport() {
+  const f = $('#csvfile').files[0];
+  if (!f) return msg('请选择 CSV 文件');
+  const text = await f.text();
+  $('#importres').textContent = '导入中…';
+  try {
+    const r = await api('/api/admin/import', { method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: text });
+    $('#importres').innerHTML = '<span class="ok">✅ 有效 ' + r.total + ' 条 / 新增 ' + r.inserted + ' 条 / 重复跳过 ' + r.skipped + ' 条</span>';
+    boot(true);
+  } catch (e) { $('#importres').textContent = '❌ ' + e.message; }
+}
+</script>
+</body>
+</html>
