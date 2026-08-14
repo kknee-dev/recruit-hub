@@ -1,0 +1,9 @@
+{
+  "name": "recruit-hub",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postCreateCommand": "node examples/gen_seed.js && export XZB_SITE_BASE=http://localhost:3600",
+  "forwardPorts": [3600],
+  "customizations": {
+    "vscode": { "extensions": ["dbaeumer.vscode-eslint"] }
+  }
+}
