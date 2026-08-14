@@ -1,0 +1,24 @@
+name: demo-data
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 每天 08:00 UTC（北京时间 16:00）
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate seed
+        run: node examples/gen_seed.js
+      - name: Commit fresh demo data
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add examples/seed.sqlite
+          git diff --cached --quiet && echo "无变化" || git commit -m "chore: refresh demo data $(date +%F)"
+          git push
