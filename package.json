@@ -1,0 +1,13 @@
+{
+  "name": "recruit-hub",
+  "version": "1.0.0",
+  "description": "校招宝开源版 —— 零依赖校园招聘信息站（Node 22 + node:sqlite）",
+  "private": true,
+  "license": "MIT",
+  "engines": { "node": ">=22.5.0" },
+  "scripts": {
+    "start": "node app/server.js",
+    "seed": "node examples/gen_seed.js"
+  },
+  "dependencies": {}
+}
