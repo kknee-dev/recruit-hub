@@ -476,4 +476,33 @@ CREATE TABLE IF NOT EXISTS kv (
 );
 `);
 
+// ===== 访客统计（前端埋点 + 离线 IP 定位） =====
+db.exec(`
+CREATE TABLE IF NOT EXISTS visits (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ts TEXT DEFAULT (datetime('now','localtime')),   -- 访问时间（北京时间）
+  ip TEXT,                                          -- 访客 IP
+  country TEXT,                                     -- 国家（ip2region 离线解析）
+  province TEXT,                                    -- 省份
+  city TEXT,                                        -- 城市
+  isp TEXT,                                         -- 运营商
+  referrer TEXT,                                    -- 来源页完整 URL（截断 500）
+  referrer_host TEXT,                               -- 来源域名（统计来源 TOP）
+  path TEXT,                                        -- 访问路径（如 /job/123）
+  title TEXT,                                       -- 页面标题
+  ua TEXT,                                          -- User-Agent（截断 300）
+  device TEXT DEFAULT 'pc',                         -- mobile|pc|bot
+  is_bot INTEGER DEFAULT 0,                         -- 爬虫标记 0/1
+  session_id TEXT,                                  -- 会话标识（前端 localStorage 生成）
+  duration_sec INTEGER DEFAULT 0,                   -- 停留时长（秒，离开时上报补记）
+  user_id INTEGER,                                  -- 登录用户 id（未登录 NULL）
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_visits_ts ON visits(ts);
+CREATE INDEX IF NOT EXISTS idx_visits_ip ON visits(ip);
+CREATE INDEX IF NOT EXISTS idx_visits_path ON visits(path);
+CREATE INDEX IF NOT EXISTS idx_visits_host ON visits(referrer_host);
+CREATE INDEX IF NOT EXISTS idx_visits_session ON visits(session_id);
+`);
+
 module.exports = db;

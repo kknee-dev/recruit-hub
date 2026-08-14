@@ -123,6 +123,38 @@ function urlKey(u) {
   return s.replace(/[?&#].*$/, '').replace(/\/+$/, '');
 }
 
+/**
+ * 同公告吸收更新（根治「表格字段编辑 → fingerprint 漂移假新增」，2026-08-14）：
+ * 当 fingerprint 未命中但「同公司 + 同公告链接(urlKey)」已存在于本地时：
+ *  - 旧记录 active 且未锁定 → 用表格新值 UPDATE 旧记录并重算指纹（吸收，不新增，信息补齐）
+ *  - 旧记录已下线(dup/removed)或锁定 → 跳过（不插入、不复活，保持下线状态）
+ *  - 无同公告匹配 → 返回 null，调用方走正常 INSERT（真新增）
+ * P = INSERT 用的完整参数数组（与 JOBS_COLS 顺序一致，见 batchUpsert/importCSV/upsertIngestJob）
+ * 返回：'absorb' | 'skip' | null
+ */
+function absorbByNotice(company, noticeUrl, P, fp) {
+  if (!company || !noticeUrl) return null;
+  const key = urlKey(noticeUrl);
+  if (!key) return null;
+  const rows = db.prepare("SELECT id, status, locked, notice_url FROM jobs WHERE company = ?").all(company);
+  const t = rows.find(h => urlKey(h.notice_url) === key);
+  if (!t) return null;                              // 无同公告 → 真新增，走 INSERT
+  if (t.status !== 'active' || t.locked) return 'skip'; // 下线/锁定 → 不复活
+  // 新指纹已被其他记录占用（理论不会发生，防御）→ 跳过
+  if (db.prepare("SELECT 1 FROM jobs WHERE fingerprint = ? AND id != ?").get(fp, t.id)) return 'skip';
+  const sql = `UPDATE jobs SET
+    update_date=?, company_type=?, batch=?, industry=?, position=?, education=?, grad_year=?,
+    city=?, publish_date=?, deadline=?, notice_url=?, apply_url=?, apply_type=?, exam=?,
+    referral_code=?, remark=?, fingerprint=?, parent_company=?, source=?, source_url=?,
+    raw_hash=?, position_list=?, positions=?, updated_at=datetime('now','localtime')
+    WHERE id=? AND locked=0`;
+  db.prepare(sql).run(
+    P[1], P[2], P[3], P[4], P[5], P[6], P[7], P[8], P[9], P[10], P[11], P[12], P[13], P[14],
+    P[15], P[16], fp, P[19], P[20], P[21], P[23], P[24], P[25], t.id
+  );
+  return 'absorb';
+}
+
 /** 构建 url_dup 判重索引：company → Set(urlKey)。预加载 active 微信文章链接，供 URL 级防新增判重用。
  *  注意：url_dup 必须按 urlKey 在内存中比较（notice_url 列存原始 URL，不能直接 SQL 匹配归一化 key）。 */
 function buildUrlKeyIndex() {
@@ -182,13 +214,8 @@ function upsertIngestJob(row) {
   // URL 级防新增：同公司 + 同文章链接已存在（active）→ 视为同一公告变体，跳过插入，避免变体行重新累积
   const noticeUrlRaw = String(row.notice_url || '').trim();
   const noticeUrl = isBadLink(noticeUrlRaw) ? '' : noticeUrlRaw;
-  if (noticeUrl && isArticleUrl(noticeUrl)) {
-    const hit = db.prepare("SELECT notice_url FROM jobs WHERE company = ? AND status = 'active' AND notice_url LIKE '%mp.weixin.qq.com%'").all(company);
-    const dup = hit.some(r => urlKey(r.notice_url) === urlKey(noticeUrl));
-    if (dup) return { inserted: false, existed: true, fingerprint: fp, skipped: true, reason: 'url_dup' };
-  }
-  db.prepare(`INSERT INTO jobs (${JOBS_COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
-    ON CONFLICT(fingerprint) DO UPDATE SET ${buildSetClause()} WHERE jobs.locked = 0`).run(
+  // 组装 INSERT/吸收共用的参数（与 JOBS_COLS 顺序一致）
+  const P = [
     company, String(row.update_date || '').trim(), ctype, batch, industry, position,
     String(row.education || '').trim(), gradYear, city, normDate(String(row.publish_date || '')),
     ddl, noticeUrl, applyUrl, applyType, exam,
@@ -196,7 +223,36 @@ function upsertIngestJob(row) {
     fp, today, canonicalCompany(company),
     String(row.source || '').trim(), String(row.source_url || '').trim(), firstSeen, String(row.raw_hash || '').trim(),
     String(row.position_list || '').trim(), String(row.positions || '').trim()
-  );
+  ];
+  if (!existed) {
+    // ① 同公告吸收：本地旧记录 active 且未锁定 → 更新旧记录并重算指纹；下线/锁定 → 跳过不复活
+    if (noticeUrl) {
+      const rowsHit = db.prepare("SELECT id, status, locked, notice_url FROM jobs WHERE company = ?").all(company);
+      const t = rowsHit.find(h => urlKey(h.notice_url) === urlKey(noticeUrl));
+      if (t) {
+        if (t.status !== 'active' || t.locked) return { inserted: false, existed: true, fingerprint: fp, skipped: true, reason: 'absorb_skip' };
+        if (db.prepare("SELECT 1 FROM jobs WHERE fingerprint = ? AND id != ?").get(fp, t.id)) return { inserted: false, existed: true, fingerprint: fp, skipped: true, reason: 'absorb_conflict' };
+        db.prepare(`UPDATE jobs SET
+          update_date=?, company_type=?, batch=?, industry=?, position=?, education=?, grad_year=?,
+          city=?, publish_date=?, deadline=?, notice_url=?, apply_url=?, apply_type=?, exam=?,
+          referral_code=?, remark=?, fingerprint=?, parent_company=?, source=?, source_url=?,
+          raw_hash=?, position_list=?, positions=?, updated_at=datetime('now','localtime')
+          WHERE id=? AND locked=0`).run(
+          P[1], P[2], P[3], P[4], P[5], P[6], P[7], P[8], P[9], P[10], P[11], P[12], P[13], P[14],
+          P[15], P[16], fp, P[19], P[20], P[21], P[23], P[24], P[25], t.id
+        );
+        return { inserted: false, existed: true, fingerprint: fp, skipped: false, absorbed: true };
+      }
+    }
+    // ② URL 级防新增：仅对新增记录（fingerprint 未命中）判重
+    if (noticeUrl && isArticleUrl(noticeUrl)) {
+      const hit = db.prepare("SELECT notice_url FROM jobs WHERE company = ? AND status = 'active' AND notice_url LIKE '%mp.weixin.qq.com%'").all(company);
+      const dup = hit.some(r => urlKey(r.notice_url) === urlKey(noticeUrl));
+      if (dup) return { inserted: false, existed: true, fingerprint: fp, skipped: true, reason: 'url_dup' };
+    }
+  }
+  db.prepare(`INSERT INTO jobs (${JOBS_COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
+    ON CONFLICT(fingerprint) DO UPDATE SET ${buildSetClause()} WHERE jobs.locked = 0`).run(...P);
   return { inserted: !existed, existed, fingerprint: fp, skipped: false };
 }
 
@@ -213,7 +269,8 @@ function batchUpsert(rows) {
   const ins = db.prepare(`INSERT INTO jobs (${JOBS_COLS}) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now','localtime'))
     ON CONFLICT(fingerprint) DO UPDATE SET ${buildSetClause()} WHERE jobs.locked = 0`);
   const urlIdx = buildUrlKeyIndex(); // 预加载同公司微信文章链接（url_dup 判重，内存比较）
-  let inserted = 0, existed = 0, skipped = 0;
+  let inserted = 0, existed = 0, skipped = 0, absorbed = 0;
+  const absorbedIds = new Set(); // 同批次内已吸收的旧记录 id，防同公告多行互相覆盖指纹
   const tx = db.transaction(() => {
     for (const row of rows) {
       const company = cleanCompany(String(row.company || '').trim());
@@ -231,16 +288,10 @@ function batchUpsert(rows) {
       const fp = computeFingerprint(company, position, batch, ddl, city);
       const today = todayCN();
       const firstSeen = String(row.first_seen || today).trim();
-      // URL 级防新增：**仅对新增记录**（fingerprint 未命中）做同公司+同文章链接判重；
-      // 已存在记录的字段更新（如 apply_url 回补）必须放行走 UPDATE，否则被误 skip
       const noticeUrlRaw = String(row.notice_url || '').trim();
       const noticeUrl = isBadLink(noticeUrlRaw) ? '' : noticeUrlRaw;
-      if (!existed && noticeUrl && isArticleUrl(noticeUrl)) {
-        const keys = urlIdx.get(company);
-        if (keys && keys.has(urlKey(noticeUrl))) { skipped++; continue; }
-      }
-      const isNew = !sel.get(fp);
-      ins.run(
+      // 组装 INSERT/吸收共用的参数（与 JOBS_COLS 顺序一致）
+      const P = [
         company, String(row.update_date || '').trim(), ctype, batch, industry, position,
         String(row.education || '').trim(), gradYear, city, normDate(String(row.publish_date || '')),
         ddl, noticeUrl, applyUrl, applyType, exam,
@@ -248,17 +299,51 @@ function batchUpsert(rows) {
         fp, today, canonicalCompany(company),
         String(row.source || '').trim(), String(row.source_url || '').trim(), firstSeen, String(row.raw_hash || '').trim(),
         String(row.position_list || '').trim(), String(row.positions || '').trim()
-      );
-      // 新插入后同步更新索引，防同批次内同 URL 重复
-      if (noticeUrl && isArticleUrl(noticeUrl)) {
-        if (!urlIdx.has(company)) urlIdx.set(company, new Set());
-        urlIdx.get(company).add(urlKey(noticeUrl));
+      ];
+      const isNew = !sel.get(fp);
+      if (isNew) {
+        // ① 同公告吸收：表格字段编辑导致指纹漂移的假新增 → 更新旧记录，不新增不复活
+        let targetId = null;
+        if (noticeUrl) {
+          const rowsHit = db.prepare("SELECT id, status, locked, notice_url FROM jobs WHERE company = ?").all(company);
+          const t = rowsHit.find(h => urlKey(h.notice_url) === urlKey(noticeUrl));
+          targetId = t ? t.id : null;
+          if (t && absorbedIds.has(t.id)) { skipped++; continue; }        // 同公告已吸收过 → 跳过防覆盖
+          if (t && (t.status !== 'active' || t.locked)) { skipped++; continue; } // 下线/锁定 → 不复活
+        }
+        if (targetId) {
+          if (db.prepare("SELECT 1 FROM jobs WHERE fingerprint = ? AND id != ?").get(fp, targetId)) { skipped++; continue; }
+          db.prepare(`UPDATE jobs SET
+            update_date=?, company_type=?, batch=?, industry=?, position=?, education=?, grad_year=?,
+            city=?, publish_date=?, deadline=?, notice_url=?, apply_url=?, apply_type=?, exam=?,
+            referral_code=?, remark=?, fingerprint=?, parent_company=?, source=?, source_url=?,
+            raw_hash=?, position_list=?, positions=?, updated_at=datetime('now','localtime')
+            WHERE id=? AND locked=0`).run(
+            P[1], P[2], P[3], P[4], P[5], P[6], P[7], P[8], P[9], P[10], P[11], P[12], P[13], P[14],
+            P[15], P[16], fp, P[19], P[20], P[21], P[23], P[24], P[25], targetId
+          );
+          absorbedIds.add(targetId);
+          absorbed++;
+          continue;
+        }
+        // ② URL 级防新增：仅对新增记录（fingerprint 未命中）做同公司+同文章链接判重；
+        //    已存在记录的字段更新（如 apply_url 回补）必须放行走 UPDATE，否则被误 skip
+        if (noticeUrl && isArticleUrl(noticeUrl)) {
+          const keys = urlIdx.get(company);
+          if (keys && keys.has(urlKey(noticeUrl))) { skipped++; continue; }
+        }
+        // 新插入后同步更新索引，防同批次内同 URL 重复
+        if (noticeUrl && isArticleUrl(noticeUrl)) {
+          if (!urlIdx.has(company)) urlIdx.set(company, new Set());
+          urlIdx.get(company).add(urlKey(noticeUrl));
+        }
       }
+      ins.run(...P);
       if (isNew) inserted++; else existed++;
     }
   });
   tx();
-  return { total: rows.length, inserted, existed, skipped };
+  return { total: rows.length, inserted, existed, skipped, absorbed };
 }
 
 /**
@@ -285,9 +370,10 @@ function importCSV(text) {
     ON CONFLICT(fingerprint) DO UPDATE SET ${buildSetClause()} WHERE jobs.locked = 0`);
   const urlIdx = buildUrlKeyIndex(); // url_dup 判重索引（同公司+同文章链接已存在则跳过，防线上重复累积）
 
-  let total = 0, inserted = 0, updated = 0;
+  let total = 0, inserted = 0, updated = 0, absorbed = 0;
   const g = (r, i) => (i >= 0 && r[i] != null ? String(r[i]).trim() : '');
   const existsStmt = db.prepare('SELECT 1 FROM jobs WHERE fingerprint = ?');
+  const absorbedIds = new Set(); // 同批次内已吸收的旧记录 id，防同公告多行互相覆盖指纹
 
   const tx = db.transaction(() => {
     for (let i = 1; i < rows.length; i++) {
@@ -305,32 +391,57 @@ function importCSV(text) {
       const ctype = normCompanyType(g(r, C.ctype));
       const exam = normExam(g(r, C.exam));
       const { url, type } = cleanUrl(g(r, C.apply));
-      const fp = computeFingerprint(company, position, batch, ddl, city);
-      const existed = existsStmt.get(fp);
-      // URL 级防新增：仅对新增记录（fingerprint 未命中）判重；已存在记录放行 UPDATE（同上）
       const noticeTxt = g(r, C.notice);
-      if (!existed && noticeTxt && isArticleUrl(noticeTxt)) {
-        const keys = urlIdx.get(company);
-        if (keys && keys.has(urlKey(noticeTxt))) { continue; }
-      }
-      stmt.run(
+      const fp = computeFingerprint(company, position, batch, ddl, city);
+      // 组装 INSERT/吸收共用的参数（与 JOBS_COLS 顺序一致）
+      const P = [
         company, g(r, C.update), ctype, batch, industry, position,
         g(r, C.edu), gradYear, city, normDate(g(r, C.pub)), ddl,
-        g(r, C.notice), url, type, exam, normReferral(g(r, C.ref)),
+        noticeTxt, url, type, exam, normReferral(g(r, C.ref)),
         g(r, C.remark).replace(/^\/$/, ''), fp, today, canonicalCompany(company),
         g(r, C.source), g(r, C.sourceUrl), g(r, C.firstSeen) || today, g(r, C.rawHash),
         g(r, C.positionList), g(r, C.positions)
-      );
-      // 新插入后同步更新索引，防同批次内同 URL 重复
-      if (noticeTxt && isArticleUrl(noticeTxt)) {
-        if (!urlIdx.has(company)) urlIdx.set(company, new Set());
-        urlIdx.get(company).add(urlKey(noticeTxt));
+      ];
+      const existed = existsStmt.get(fp);
+      if (!existed) {
+        // ① 同公告吸收：本地旧记录 active 且未锁定 → 更新旧记录并重算指纹；下线/锁定 → 跳过不复活
+        if (noticeTxt) {
+          const rowsHit = db.prepare("SELECT id, status, locked, notice_url FROM jobs WHERE company = ?").all(company);
+          const t = rowsHit.find(h => urlKey(h.notice_url) === urlKey(noticeTxt));
+          if (t) {
+            if (absorbedIds.has(t.id) || t.status !== 'active' || t.locked) { continue; }
+            if (db.prepare("SELECT 1 FROM jobs WHERE fingerprint = ? AND id != ?").get(fp, t.id)) { continue; }
+            db.prepare(`UPDATE jobs SET
+              update_date=?, company_type=?, batch=?, industry=?, position=?, education=?, grad_year=?,
+              city=?, publish_date=?, deadline=?, notice_url=?, apply_url=?, apply_type=?, exam=?,
+              referral_code=?, remark=?, fingerprint=?, parent_company=?, source=?, source_url=?,
+              raw_hash=?, position_list=?, positions=?, updated_at=datetime('now','localtime')
+              WHERE id=? AND locked=0`).run(
+              P[1], P[2], P[3], P[4], P[5], P[6], P[7], P[8], P[9], P[10], P[11], P[12], P[13], P[14],
+              P[15], P[16], fp, P[19], P[20], P[21], P[23], P[24], P[25], t.id
+            );
+            absorbedIds.add(t.id);
+            absorbed++;
+            continue;
+          }
+        }
+        // ② URL 级防新增：仅对新增记录（fingerprint 未命中）判重；已存在记录放行 UPDATE（同上）
+        if (noticeTxt && isArticleUrl(noticeTxt)) {
+          const keys = urlIdx.get(company);
+          if (keys && keys.has(urlKey(noticeTxt))) { continue; }
+        }
+        // 新插入后同步更新索引，防同批次内同 URL 重复
+        if (noticeTxt && isArticleUrl(noticeTxt)) {
+          if (!urlIdx.has(company)) urlIdx.set(company, new Set());
+          urlIdx.get(company).add(urlKey(noticeTxt));
+        }
       }
+      stmt.run(...P);
       if (existed) updated++; else inserted++;
     }
   });
   tx();
-  return { total, inserted, updated, skipped: total - inserted - updated };
+  return { total, inserted, updated, absorbed, skipped: total - inserted - updated };
 }
 
 module.exports = { importCSV, parseCSV, computeFingerprint, upsertIngestJob, batchUpsert, cleanUrl };

@@ -17,6 +17,7 @@ const tax = require('./lib/position_taxonomy');
 const jobManual = require('./lib/job_manual');
 const { isBot, renderJob, renderCompany, renderHome, renderCompanies, renderMaterials, renderOffers, renderExpired, renderStatic, renderGuides, renderGuide, buildSitemap, buildRobots, buildLlms, buildLlmsFull, invalidateSeoCache } = ssr;
 const { buildExperienceSummary } = require('./lib/exp');
+const geo = require('./lib/geo');
 
 const app = createApp();
 app.static(path.join(__dirname, 'public'));
@@ -131,6 +132,52 @@ function recordAdminFail(ip) {
   }
 }
 app.use(optionalAuth);
+
+// ---------- 访客统计埋点（2026-08-14，前端 sendBeacon/fetch 上报） ----------
+const BOT_RE = /bot|crawl|spider|slurp|curl|wget|python|java\/|go-http|node-fetch|phantom|headless|facebookexternalhit|bingbot|googlebot|baiduspider|360spider|sogou|yisouspider|semrush|ahrefs|mj12|petalbot|bytespider/i;
+const TRACK_LIMIT_N = 5, TRACK_LIMIT_MS = 10000;
+const trackLimits = new Map(); // ip -> { n, at } 防刷库（浏览器正常上报远低于此）
+function trackRateLimited(ip) {
+  const now = Date.now();
+  const rec = trackLimits.get(ip) || { n: 0, at: 0 };
+  if (now - rec.at > TRACK_LIMIT_MS) { rec.n = 0; rec.at = now; }
+  rec.n++;
+  trackLimits.set(ip, rec);
+  if (trackLimits.size > 20000) trackLimits.clear();
+  return rec.n > TRACK_LIMIT_N;
+}
+app.post('/api/track', (req, res) => {
+  try {
+    const ip = (req.headers['x-real-ip'] || '').trim() || (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || (req.socket && req.socket.remoteAddress) || '';
+    if (!ip || trackRateLimited(ip)) return res.json({ ok: true }); // 静默忽略（不报错，防刷）
+    const ua = String(req.headers['user-agent'] || '').slice(0, 300);
+    const isBot = BOT_RE.test(ua);
+    const device = isBot ? 'bot' : (/mobile|android|iphone|ipad|ipod/i.test(ua) ? 'mobile' : 'pc');
+    const { path: pagePath, title, referrer, duration, session } = req.body || {};
+    if (!pagePath || typeof pagePath !== 'string' || pagePath.length > 500) return res.json({ ok: true });
+    const cleanPath = pagePath.split('#')[0].split('?')[0].slice(0, 200);
+    const refStr = String(referrer || '').slice(0, 500);
+    let refHost = '';
+    try { refHost = refStr ? new URL(refStr).host : ''; } catch { refHost = ''; }
+    // 站内跳转/本机访问不计来源（前台显示为「直接访问」）
+    if (refHost && /xiaozhaobao\.com\.cn$|localhost|127\.0\.0\.1|:3600$/.test(refHost)) refHost = '';
+    // 懒加载离线 IP 库（缺数据文件时静默降级为 null，不影响主流程）
+    if (!geo._loaded) { try { geo.load(); geo._loaded = true; } catch { /* ignore */ } }
+    let loc = null;
+    try { loc = ip && !ip.startsWith('::') && !ip.startsWith('127.') && !ip.startsWith('10.') && !ip.startsWith('192.168.') && !ip.startsWith('172.') ? geo.lookup(ip) : null; } catch { loc = null; }
+    db.prepare(`INSERT INTO visits (ip, country, province, city, isp, referrer, referrer_host, path, title, ua, device, is_bot, session_id, duration_sec, user_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).run(
+        ip.slice(0, 64), (loc && loc.country) || '', (loc && loc.province) || '', (loc && loc.city) || '', (loc && loc.isp) || '',
+        refStr, refHost, cleanPath, String(title || '').slice(0, 200), ua, device, isBot ? 1 : 0,
+        String(session || '').slice(0, 64), Math.max(0, Number(duration) || 0), req.user ? req.user.id : null
+      );
+    // 定期清理 30 天前明细（约 2% 概率触发，防表膨胀）
+    if (Math.random() < 0.02) {
+      try { db.prepare("DELETE FROM visits WHERE ts < datetime('now','localtime','-30 days')").run(); } catch { /* ignore */ }
+    }
+  } catch (e) { /* 埋点失败不影响页面主流程 */ }
+  res.json({ ok: true });
+});
 
 // ---------- 元数据（筛选项） ----------
 let metaCache = null;
@@ -633,7 +680,7 @@ app.post('/api/resume/optimize', requireAuth, async (req, res) => {
   positions = Array.isArray(positions) ? positions.map(p => String(p).slice(0, 50)).filter(Boolean).slice(0, 5) : [];
   if (!resume || String(resume).trim().length < 50) return res.status(400).json({ error: '请完整粘贴简历内容（至少 50 字）' });
   if (!positions.length) return res.status(400).json({ error: '请先点「智能推荐岗位」并至少勾选一个目标岗位' });
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+  const ip = clientIp(req);
   const t0 = Date.now();
   const r = resumeRate.get(ip) || { t: t0, n: 0 };
   if (t0 - r.t > 60000) { r.t = t0; r.n = 0; }
@@ -677,7 +724,7 @@ ${String(resume).slice(0, 8000)}
 app.post('/api/resume/recommend-positions', requireAuth, async (req, res) => {
   const { resume } = req.body || {};
   if (!resume || String(resume).trim().length < 50) return res.status(400).json({ error: '请先上传或粘贴简历（至少 50 字）' });
-  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').toString().split(',')[0].trim();
+  const ip = clientIp(req);
   const t0 = Date.now(); const r = resumeRate.get(ip) || { t: t0, n: 0 };
   if (t0 - r.t > 60000) { r.t = t0; r.n = 0; }
   if (++r.n > 5) return res.status(429).json({ error: '操作太频繁，请 1 分钟后再试' });
@@ -995,7 +1042,9 @@ app.get('/api/admin/stats', requireAdmin, (_req, res) => {
     today_added: one(`SELECT COUNT(*) c FROM jobs WHERE added_date = date('now','localtime')`).c,
     pending_suggestions: one("SELECT COUNT(*) c FROM work_suggestions WHERE status='pending'").c,
     open_errors: one("SELECT COUNT(*) c FROM site_errors WHERE status IN ('open','flagged')").c,
-    new_feedback: one("SELECT COUNT(*) c FROM feedback WHERE status='new'").c
+    new_feedback: one("SELECT COUNT(*) c FROM feedback WHERE status='new'").c,
+    today_visits: one("SELECT COUNT(*) c FROM visits WHERE date(ts)=date('now','localtime')").c,
+    today_uv: one("SELECT COUNT(DISTINCT ip) c FROM visits WHERE date(ts)=date('now','localtime')").c
   });
 });
 
@@ -1195,8 +1244,7 @@ app.get('/api/admin/orders', requireAdmin, (req, res) => {
 
 // 每日邮件数据接口（供定时任务调用）：返回每个订阅用户（试用期/付费）的匹配命中
 // 注意：窗口用「最近 2 天」（added_date >= 昨天），避免当天 09:00 数据尚未入库时漏发、次日不补
-app.get('/api/admin/daily-digest', requireAdmin, (_req, res) => {
-  const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+app.get('/api/admin/daily-digest', requireAdmin, (_req, res) => {  const today = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
   const since = new Date(Date.now() + 8 * 3600 * 1000 - 2 * 86400000).toISOString().slice(0, 10);
   const subs = db.prepare(`
     SELECT s.*, u.email, u.paid_end, u.trial_end FROM subscriptions s JOIN users u ON u.id = s.user_id
@@ -1257,6 +1305,42 @@ app.put('/api/admin/jobs-recruit-fields', requireAdmin, (req, res) => {
     }
   })();
   res.json({ updated_salary: ns, updated_org: no });
+});
+
+// ===================== 访客统计（管理后台，2026-08-14） =====================
+// days 窗口上限 90 天；human=1 时仅统计真实访客（排除爬虫）
+function visitsWindow(days) { return Math.min(Math.max(parseInt(days) || 7, 1), 90); }
+
+// 汇总：今日/区间 PV·UV、来源 TOP、地域 TOP、页面 TOP、设备分布、14 天趋势
+app.get('/api/admin/visits/summary', requireAdmin, (req, res) => {
+  const days = visitsWindow(req.query.days);
+  const human = req.query.human === '1' ? ' AND is_bot=0' : '';
+  const today = `date(ts)=date('now','localtime')`;
+  const period = `ts >= datetime('now','localtime','-${days} days')`;
+  const q = s => db.prepare(s).get();
+  const todayPV = q(`SELECT COUNT(*) n FROM visits WHERE ${today}${human}`).n;
+  const todayUV = q(`SELECT COUNT(DISTINCT ip) n FROM visits WHERE ${today}${human}`).n;
+  const periodPV = q(`SELECT COUNT(*) n FROM visits WHERE ${period}${human}`).n;
+  const periodUV = q(`SELECT COUNT(DISTINCT ip) n FROM visits WHERE ${period}${human}`).n;
+  const avgDur = q(`SELECT AVG(duration_sec) v FROM visits WHERE ${period} AND duration_sec>0${human}`).v || 0;
+  const refs = db.prepare(`SELECT COALESCE(NULLIF(referrer_host,''),'直接访问') host, COUNT(*) n FROM visits WHERE ${period}${human} GROUP BY host ORDER BY n DESC LIMIT 10`).all();
+  const regions = db.prepare(`SELECT COALESCE(NULLIF(province,''), NULLIF(country,''), '未知') region, COUNT(*) n FROM visits WHERE ${period}${human} GROUP BY region ORDER BY n DESC LIMIT 10`).all();
+  const pages = db.prepare(`SELECT path, COUNT(*) n FROM visits WHERE ${period}${human} GROUP BY path ORDER BY n DESC LIMIT 10`).all();
+  const devices = db.prepare(`SELECT device, COUNT(*) n FROM visits WHERE ${period}${human} GROUP BY device ORDER BY n DESC`).all();
+  const trend = db.prepare(`SELECT date(ts) d, COUNT(*) pv, COUNT(DISTINCT ip) uv FROM visits WHERE ts >= datetime('now','localtime','-13 days')${human} GROUP BY d ORDER BY d`).all();
+  res.json({ days, todayPV, todayUV, periodPV, periodUV, avgDuration: Math.round(avgDur * 10) / 10, refs, regions, pages, devices, trend });
+});
+
+// 明细列表（分页）
+app.get('/api/admin/visits/list', requireAdmin, (req, res) => {
+  const days = visitsWindow(req.query.days);
+  const page = Math.max(parseInt(req.query.page) || 1, 1);
+  const size = Math.min(Math.max(parseInt(req.query.size) || 50, 1), 200);
+  const human = req.query.human === '1' ? ' AND is_bot=0' : '';
+  const where = `ts >= datetime('now','localtime','-${days} days')${human}`;
+  const total = db.prepare(`SELECT COUNT(*) n FROM visits WHERE ${where}`).get().n;
+  const list = db.prepare(`SELECT id, ts, ip, country, province, city, referrer, referrer_host, path, title, device, is_bot, session_id, duration_sec, user_id FROM visits WHERE ${where} ORDER BY id DESC LIMIT ? OFFSET ?`).all(size, (page - 1) * size);
+  res.json({ total, page, size, days, list });
 });
 
 // ===================== 求职攻略（公开） =====================
