@@ -1,0 +1,28 @@
+name: content-engine
+on:
+  schedule:
+    - cron: '0 0 * * 1'   # 每周一 00:00 UTC
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate demo data
+        run: node examples/gen_seed.js
+      - name: Generate dataset
+        run: node scripts/gen_dataset.js
+      - name: Generate weekly digest
+        run: node scripts/gen_digest.js
+      - name: Commit
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet && echo "无变化" || git commit -m "chore: weekly dataset + digest $(date +%F)"
+          git push
