@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const path = require('path');
 const fs = require('node:fs');
 const db = require('./db');
@@ -91,8 +92,43 @@ function requireAuth(req, res, next) {
   next();
 }
 function requireAdmin(req, res, next) {
-  if (req.headers['x-admin-key'] !== config.ADMIN_KEY) return res.status(403).json({ error: '管理密钥错误' });
-  next();
+  const expected = String(config.ADMIN_KEY || '');
+  if (!expected) return res.status(403).json({ error: '管理密钥错误' }); // 未配置管理密钥 → 管理接口一律不可用
+  const key = String(req.headers['x-admin-key'] || '');
+  // 恒定时间比较：先 sha256 再 timingSafeEqual（长度恒定，防时序侧信道）
+  const a = crypto.createHash('sha256').update(key).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  // 正确密钥永远放行（锁定只限制"继续猜"，不影响真实管理员使用，防攻击者用错误尝试锁死管理入口）
+  if (crypto.timingSafeEqual(a, b)) return next();
+  const ip = clientIp(req);
+  if (adminLocked(ip)) return res.status(429).json({ error: '尝试次数过多，请 15 分钟后再试' });
+  recordAdminFail(ip);
+  return res.status(403).json({ error: '管理密钥错误' });
+}
+// 管理密钥防爆破（2026-08-14 加固）：单 IP 10 次失败锁 15 分钟；全局 100 次/15 分钟锁（防分布式绕过）
+const ADMIN_FAIL_LIMIT = 10, ADMIN_FAIL_WINDOW_MS = 15 * 60 * 1000, ADMIN_GLOBAL_LIMIT = 100;
+const adminFails = new Map();       // ip -> { n, lockedUntil }
+let adminFailTotal = 0, adminFailTotalAt = 0;
+function adminLocked(ip) {
+  const rec = adminFails.get(ip);
+  if (rec && rec.lockedUntil && Date.now() < rec.lockedUntil) return true;
+  if (adminFailTotal >= ADMIN_GLOBAL_LIMIT && Date.now() - adminFailTotalAt < ADMIN_FAIL_WINDOW_MS) return true;
+  return false;
+}
+function recordAdminFail(ip) {
+  const now = Date.now();
+  if (now - adminFailTotalAt > ADMIN_FAIL_WINDOW_MS) { adminFailTotal = 0; adminFailTotalAt = now; }
+  adminFailTotal++;
+  const rec = adminFails.get(ip) || { n: 0, lockedUntil: 0 };
+  rec.n++;
+  if (rec.n >= ADMIN_FAIL_LIMIT) { rec.lockedUntil = now + ADMIN_FAIL_WINDOW_MS; rec.n = 0; }
+  adminFails.set(ip, rec);
+  if (adminFails.size > 5000) {
+    for (const k of [...adminFails.keys()]) {
+      const r = adminFails.get(k);
+      if (r.n === 0 && Date.now() - (r.lockedUntil || 0) > ADMIN_FAIL_WINDOW_MS) adminFails.delete(k);
+    }
+  }
 }
 app.use(optionalAuth);
 
@@ -351,7 +387,7 @@ const FAIL_LIMIT = 5, FAIL_WINDOW_MS = 15 * 60 * 1000;
 const IP_SEND_DAILY = 20;
 const loginFails = new Map();   // email -> { n, lockedUntil }
 const ipSendCount = new Map();  // ip:YYYY-MM-DD -> count
-const clientIp = req => (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
+const clientIp = req => (req.headers['x-real-ip'] || '').trim() || (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket.remoteAddress || '';
 
 function checkLoginLocked(email) {
   const rec = loginFails.get(String(email || '').toLowerCase());
@@ -1504,7 +1540,7 @@ app.get('/privacy', ssrSend(renderStatic, { title:'隐私政策 - 校招宝', de
     <h2 style="font-size:15px;margin:18px 0 6px">5. Cookie 与本地存储</h2>
     <p>本站使用浏览器本地存储（localStorage）保存登录态与搜索历史，不使用第三方跟踪 Cookie。</p>
     <h2 style="font-size:15px;margin:18px 0 6px">6. 联系我们</h2>
-    <p>如有隐私相关疑问，请通过邮件联系：28473@qq.com。</p>
+    <p>如有隐私相关疑问，请通过网站内「用户反馈」功能或服务邮箱联系我们。</p>
   </article>` }));
 app.get('/terms', ssrSend(renderStatic, { title:'用户协议 - 校招宝', description:'校招宝用户协议：使用本站服务前请阅读并同意本协议。', body:
   `<article class="page" style="padding:20px 16px;max-width:720px;margin:0 auto;line-height:1.8">

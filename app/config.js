@@ -1,6 +1,6 @@
 // 极简 .env 加载（零依赖，仅当文件存在时；.env 文件优先于已存在的 process.env）
 // 说明：强制覆盖，避免外部 shell 环境里混入的残缺/错误同名变量（如 DEEPSEEK_SECRET_KEY）
-//       导致签名失败；部署侧 /opt/xiaozhaobao/.env 由 systemd EnvironmentFile 注入，取值一致。
+//       导致签名失败；部署侧 .env 由 systemd EnvironmentFile 注入，取值一致。
 try {
   const fs = require('node:fs');
   const ep = require('node:path').join(__dirname, '..', '.env');
