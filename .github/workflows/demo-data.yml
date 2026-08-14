@@ -3,6 +3,8 @@ on:
   schedule:
     - cron: '0 8 * * *'   # 每天 08:00 UTC（北京时间 16:00）
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   refresh:
     runs-on: ubuntu-latest

@@ -15,7 +15,6 @@ logs/
 # 数据/临时
 tools/
 output/
-data/
 tmp/
 *.tmp
 # 系统

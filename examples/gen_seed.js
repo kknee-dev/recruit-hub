@@ -97,6 +97,10 @@ const PROFILES = [
   ['弘毅咨询', '管理咨询公司，专注战略与运营咨询。', '北京'],
   ['恒安保险', '综合性保险公司，提供财产与人寿保险服务。', '北京/上海'],
   ['领航物流', '综合物流服务企业，提供仓储、运输与供应链解决方案。', '厦门'],
+  ['晟源材料', '新材料研发与制造企业，专注电子级材料。', '宁波'],
+  ['新界传媒', '内容创作与数字传媒企业，覆盖图文与短视频。', '上海'],
+  ['拓维农业', '农业产业服务企业，提供供应链与农技推广。', '郑州'],
+  ['九鼎科技', '人工智能应用研发企业，专注大模型应用与行业方案。', '北京/深圳'],
 ];
 
 function md5(s) { return crypto.createHash('md5').update(String(s)).digest('hex'); }
@@ -104,6 +108,8 @@ function md5(s) { return crypto.createHash('md5').update(String(s)).digest('hex'
 const db = new DatabaseSync(OUT);
 // 重建表（幂等）：先 DROP 再 CREATE，避免对已有库重复插入导致 fingerprint UNIQUE 冲突
 db.exec('DROP TABLE IF EXISTS jobs; DROP TABLE IF EXISTS company_profiles;');
+// 详情/攻略/练习/薪资相关表（drop+create 跟随 standalone；server 启动 db.js 已 CREATE IF NOT EXISTS）
+db.exec('DROP TABLE IF EXISTS career_guides; DROP TABLE IF EXISTS practice_positions; DROP TABLE IF EXISTS practice_banks; DROP TABLE IF EXISTS practice_questions; DROP TABLE IF EXISTS offer_reference;');
 db.exec(`
 CREATE TABLE IF NOT EXISTS jobs (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,7 +139,68 @@ for (const [company, ctype, industry, position, batch, city, edu, ddl, pub, grad
 }
 const pin = db.prepare('INSERT OR REPLACE INTO company_profiles (name, intro, locations) VALUES (?,?,?)');
 for (const [name, intro, loc] of PROFILES) pin.run(name, intro, loc);
+
+// —— 详情/攻略/练习/薪资：最小示例（避免 SSR 退化）——
+db.exec(`
+CREATE TABLE IF NOT EXISTS career_guides (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, position TEXT NOT NULL, stage TEXT,
+  title TEXT, content TEXT, source TEXT DEFAULT 'ai', status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS practice_positions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
+  job_count INTEGER DEFAULT 0, intro TEXT, sort_no INTEGER DEFAULT 0,
+  status TEXT DEFAULT 'active', updated_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS practice_banks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  kind TEXT NOT NULL,            -- '笔试' | '面试'
+  company TEXT,                  -- 企业名（可空=通用）
+  company_type TEXT,             -- 央国企/民企/外资/银行...
+  position TEXT,                 -- 岗位类型（后端/产品/通用...）
+  industry TEXT,
+  title TEXT NOT NULL,
+  description TEXT,
+  source_material_id INTEGER,    -- 关联 materials.id（语料来源，不下载）
+  difficulty TEXT,               -- 易/中/难
+  status TEXT DEFAULT 'active',
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS practice_questions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, bank_id INTEGER NOT NULL,
+  q_type TEXT NOT NULL, stem TEXT NOT NULL, options TEXT, answer TEXT,
+  rubric TEXT, explanation TEXT, order_no INTEGER DEFAULT 0,
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+CREATE TABLE IF NOT EXISTS offer_reference (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, company TEXT, position TEXT,
+  education TEXT, city TEXT, tier TEXT, salary_min REAL, salary_max REAL,
+  grad_year TEXT, source TEXT, source_url TEXT,
+  created_at TEXT DEFAULT (datetime('now','localtime'))
+);
+`);
+
+// 攻略示例（algorithm-engineer overview）
+db.prepare(`INSERT INTO career_guides (position, stage, title, content) VALUES (?,?,?,?)`).run(
+  '算法工程师', 'overview',
+  '算法工程师校招指南（演示）',
+  '## 岗位画像\n面向机器学习/搜索/推荐/NLP 等方向的数据建模与系统实现。\n## 笔试重点\n编程（中等难度）、机器学习理论、概率统计。\n## 面试核心\n项目深挖 + 模型原理 + 业务落地能力。'
+);
+// 实践岗位示例
+const ppos = db.prepare(`INSERT INTO practice_positions (name, job_count, intro, sort_no) VALUES (?,?,?,?)`);
+ppos.run('算法工程师', 1249, '数据建模与系统实现', 1);
+ppos.run('软件开发', 1163, '后端/前端/全栈开发', 2);
+// 题库 + 题目示例
+db.prepare(`INSERT INTO practice_banks (id, kind, position, title, description, difficulty) VALUES (?,?,?,?,?,?)`).run(1, '笔试', '算法工程师', '算法工程师-校招冲刺题库（演示）', '覆盖机器学习/编程/概率统计高频考点', '中');
+const pqs = db.prepare(`INSERT INTO practice_questions (bank_id, q_type, stem, options, answer, explanation, order_no) VALUES (?,?,?,?,?,?,?)`);
+pqs.run(1, '单选', '以下哪个算法不属于监督学习？', JSON.stringify(['线性回归','决策树','K-means','SVM']), 'K-means', 'K-means 是无监督聚类算法，其他均为监督学习。', 1);
+pqs.run(1, '判断', '梯度下降法一定可以找到全局最优解。', JSON.stringify(['正确','错误']), '错误', '非凸函数可能收敛到局部最优。', 2);
+// 薪资示例
+const ofr = db.prepare(`INSERT INTO offer_reference (company, position, education, city, tier, salary_min, salary_max, grad_year, source) VALUES (?,?,?,?,?,?,?,?,?)`);
+ofr.run('星辰科技', '算法工程师', '硕士', '北京', 'sp', 25, 40, '2026', '公开汇总');
+ofr.run('云帆软件', '软件开发', '本科', '广州', 'p5', 15, 25, '2026', '公开汇总');
+
 db.close();
 
-console.log(`✅ 演示数据已生成：${SEED.length} 条岗位 + ${PROFILES.length} 家企业档案 → ${OUT}`);
+console.log(`✅ 演示数据已生成：${SEED.length} 条岗位 + ${PROFILES.length} 家企业档案 + 2 条攻略/练习示例 + 2 条薪资参考 → ${OUT}`);
 console.log('首次启动时若主库为空，将自动加载本 seed（见 README「一键体验」）。');

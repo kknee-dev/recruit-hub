@@ -30,7 +30,7 @@
 要求：**Node.js ≥ 22.5**（Node 22 自带 `node:sqlite`，无需任何安装步骤）。
 
 ```bash
-git clone https://github.com/<your-org>/recruit-hub.git
+git clone https://github.com/kknee-dev/recruit-hub.git
 cd recruit-hub
 # Linux / macOS
 ./start.sh
@@ -75,7 +75,7 @@ recruit-hub/
 
 ## 🔌 数据管道：如何接入你自己的数据
 
-开源版自带演示数据。接真实数据有两种方式：
+开源版自带演示数据。接演示数据有两种方式：
 
 1. **直接灌库**：向 `jobs` 表写入岗位行即可（参考 `examples/gen_seed.js` 的字段）；重复岗位通过 `fingerprint`（company|position|batch|education|city 的 MD5）自动去重。
 2. **管理后台导入**：设置 `ADMIN_KEY` 后通过 `/admin` 的 CSV 导入接口批量灌入。
@@ -97,7 +97,7 @@ recruit-hub/
 
 ## 🌐 在线体验与托管服务
 
-- 完整版体验：https://xiaozhaobao.com.cn （数据每日更新，含真实校招岗位）
+- 完整版体验：https://xiaozhaobao.com.cn （数据每日更新，含演示校招岗位（完全脱敏））
 - **不想自己部署？** 我们提供托管服务（数据接入 + 部署 + 维护），适合学生社团 / 高校就业办 / 培训机构——详见仓库 Discussions 或联系我们。
 
 ## 🤝 贡献
