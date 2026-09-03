@@ -1,11 +1,11 @@
-> 🌐 **在线体验（30 秒，无需安装）**：**https://xiaozhaobao.com.cn/xzb2026** —— 真实校招数据每日更新，点开即看效果。
+> 🌐 **在线体验（30 秒，无需安装）**：**https://xiaozhaobao.com.cn** —— 真实校招数据每日更新，点开即看效果。
 
 ---
 
 # 🎯 recruit-hub · 校招宝开源版
 
 > **⭐ 如果这个项目对你有帮助，请点个 Star！** 你的 Star 是开源项目最大的动力。
-> 🌐 完整在线体验：**https://xiaozhaobao.com.cn/xzb2026**
+> 🌐 完整在线体验：**https://xiaozhaobao.com.cn**
 
 **零依赖的校园招聘信息聚合站** —— `git clone` 一条命令即可跑起来，无需 npm install、无需构建、无需数据库服务。
 
@@ -14,7 +14,7 @@
 [![Node](https://img.shields.io/badge/Node.js-%3E%3D22.5-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 [![零依赖](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/kknee-dev/recruit-hub)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
-[![在招岗位](https://img.shields.io/badge/dynamic/json?url=https://xiaozhaobao.com.cn/api/meta&query=total&label=%E7%BA%BF%E4%B8%8A%E5%9C%A8%E6%8B%9B%E5%B2%97%E4%BD%8D&color=orange)](https://xiaozhaobao.com.cn/xzb2026)
+[![在招岗位](https://img.shields.io/badge/dynamic/json?url=https://xiaozhaobao.com.cn/api/meta&query=total&label=%E7%BA%BF%E4%B8%8A%E5%9C%A8%E6%8B%9B%E5%B2%97%E4%BD%8D&color=orange)](https://xiaozhaobao.com.cn)
 [![Stars](https://img.shields.io/github/stars/kknee-dev/recruit-hub?style=social)](https://github.com/kknee-dev/recruit-hub/stargazers)
 
 ---
@@ -120,7 +120,7 @@ recruit-hub/
 
 ## 🌐 在线体验与托管服务
 
-- 完整版体验：https://xiaozhaobao.com.cn/xzb2026 （数据每日更新）
+- 完整版体验：https://xiaozhaobao.com.cn （数据每日更新）
 - **不想自己部署？** 我们提供托管服务（数据接入 + 部署 + 维护），适合学生社团 / 高校就业办 / 培训机构——详见仓库 Discussions 或联系我们。
 
 ## 🤝 贡献
@@ -174,7 +174,7 @@ cd recruit-hub
 # start.bat           # Windows
 # open http://localhost:3600
 ```
-Live demo: **https://xiaozhaobao.com.cn/xzb2026**
+Live demo: **https://xiaozhaobao.com.cn**
 
 ### Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and Discussions are welcome. Fork + PR (keep it zero-dependency).
@@ -186,4 +186,4 @@ MIT — free to use, modify, and distribute (including commercial).
 
 ---
 
-<p align="center">⭐ Star this repo if you find it useful · 🌐 <a href="https://xiaozhaobao.com.cn/xzb2026">xiaozhaobao.com.cn</a></p>
+<p align="center">⭐ Star this repo if you find it useful · 🌐 <a href="https://xiaozhaobao.com.cn">xiaozhaobao.com.cn</a></p>
