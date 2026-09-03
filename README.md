@@ -1,3 +1,5 @@
+<p align="center"><img src="social-preview.png" alt="校招宝 recruit-hub 社交预览"></p>
+
 > 🌐 **在线体验（30 秒，无需安装）**：**https://xiaozhaobao.com.cn** —— 真实校招数据每日更新，点开即看效果。
 
 ---
