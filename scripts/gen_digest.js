@@ -2,14 +2,17 @@
 /**
  * 生成「本周校招情报」周报（recruit-hub 传播内容引擎，Phase 2）
  * 从脱敏演示数据统计生成，无 LLM 依赖（任何环境可跑）。
- * 输出：digest/YYYY-W##.md
+ * 输出：digest/demo/YYYY-W##.md
  * 用法：node scripts/gen_digest.js [输出目录]
+ *
+ * 注：默认输出到 digest/demo 子目录，保护根目录真实周报快照（digest/校招情报周报-*.md）不被覆盖。
  */
 const path = require('node:path');
 const fs = require('node:fs');
 const { DatabaseSync } = require('node:sqlite');
 
-const OUT_DIR = process.argv[2] || path.join(__dirname, '..', 'digest');
+// 默认输出到 digest/demo 子目录，保护根目录真实周报快照
+const OUT_DIR = process.argv[2] || path.join(__dirname, '..', 'digest', 'demo');
 const SEED = path.join(__dirname, '..', 'examples', 'seed.sqlite');
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
