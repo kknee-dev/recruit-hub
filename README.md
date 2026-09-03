@@ -1,5 +1,3 @@
-<p align="center"><img src="social-preview.png" alt="校招宝 recruit-hub 社交预览"></p>
-
 > 🌐 **在线体验（30 秒，无需安装）**：**https://xiaozhaobao.com.cn** —— 真实校招数据每日更新，点开即看效果。
 
 ---
@@ -92,8 +90,10 @@ recruit-hub/
 │   ├── gen_dataset.js   # 演示数据集导出（读 seed.sqlite）
 │   ├── export_real_dataset.js  # 真实脱敏数据集导出（读真实库，需 XZB_DB_PATH）
 │   └── gen_digest.js    # 周报生成
-├── data/                # 每期脱敏数据集（CSV + JSON）
-├── digest/              # 校招情报周报
+├── data/                # 真实脱敏数据集快照（根目录，维护者定期导出，永久保留）
+│   └── demo/            # CI 自动生成的虚构演示数据（每周刷新，不覆盖根目录真实快照）
+├── digest/              # 校招情报周报（根目录为真实快照）
+│   └── demo/            # CI 自动生成的虚构演示周报
 ├── start.sh / start.bat # 一键启动
 └── .env.example         # 环境变量模板
 ```
