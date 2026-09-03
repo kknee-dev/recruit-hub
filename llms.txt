@@ -8,6 +8,28 @@
 - [API 示例](/api/jobs?q=&city=&page=): 公开只读岗位检索接口
 - [演示数据生成器](/examples/gen_seed.js): 生成完全脱敏的演示数据
 
+## Open Dataset（公开脱敏数据集 · 可被索引）
+校招宝把真实聚合的公开招聘数据脱敏后作为公开样本随仓库发布，可用于检索研究、可视化与 AI 训练样本。仅含公开聚合字段，不含个人信息；来源标注见每条 `source_url`。
+
+字段含义（data/jobs-YYYY-MM-DD.json）：
+- company: 公司名（公开）
+- company_type: 公司性质（国企/民企/外企…）
+- batch: 招聘批次（秋招/春招/实习…）
+- industry: 行业
+- position: 岗位名
+- education: 学历要求
+- grad_year: 届别（如 2026）
+- city: 工作城市
+- publish_date / deadline: 发布日 / 截止日
+- source: 数据源（zhiye/hotjob/feishu/mokahr/inovance…）
+- source_domain / source_url: 原公开公告/招聘页域名与链接
+- salary: 薪资区间（如有）
+
+- [数据集目录](/data/): 每期导出的 jobs-YYYY-MM-DD.csv / .json
+- [校招情报周报](/digest/): 自动聚合的每周在招 Top 公司、热门城市、批次与行业分布
+- [数据集导出脚本](/scripts/export_real_dataset.js): 读取真实聚合库、脱敏导出（需 XZB_DB_PATH）
+
 ## Notes
-- 演示数据完全脱敏（虚构公司名），演示数据需自行接入数据源（README「数据管道」章节）。
+- 演示数据完全脱敏（虚构公司名）；真实数据集为公开样本，版权归原发布方，本仓库仅作技术演示与检索研究，非官方招聘服务。
 - 开源版（recruit-hub）与线上运营站校招宝独立；本仓库不包含任何真实用户数据。
+- 如需下线某条数据，联系仓库维护者。
