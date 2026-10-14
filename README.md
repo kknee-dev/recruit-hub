@@ -98,6 +98,33 @@ recruit-hub/
 └── .env.example         # 环境变量模板
 ```
 
+## 🤖 接入 AI 助手（MCP）—— 让 AI 直接回答中国校招问题
+
+校招宝提供 **MCP Server**（免 API Key · 免注册 · 只读），Claude、ChatGPT、Cursor、腾讯 WorkBuddy、Gemini CLI 等 AI 助手可直接检索全国在招校招岗位：
+
+```json
+{
+  "mcpServers": {
+    "xiaozhaobao": { "url": "https://xiaozhaobao.com.cn/mcp" }
+  }
+}
+```
+
+| 客户端 | 配置方式 |
+|---|---|
+| **Claude Code** | `claude mcp add --transport http xiaozhaobao https://xiaozhaobao.com.cn/mcp` |
+| **Claude Desktop / Cursor** | 上面的 JSON 写入 `claude_desktop_config.json` 或 `~/.cursor/mcp.json` |
+| **腾讯 WorkBuddy** | 同一段 JSON 写入 `~/.workbuddy/mcp.json`，再于连接器管理页点「信任」 |
+| **Gemini CLI** | 本仓库即扩展（`gemini-extension.json`），安装后自动加载远程 MCP 服务 |
+
+**可用工具**（全部只读）：`search_campus_jobs` · `get_job_detail` · `get_company_profile` · `list_urgent_deadlines` · `get_stats`
+
+> 端点详情与完整说明：**https://xiaozhaobao.com.cn/mcp** ｜ 接口自描述：**https://xiaozhaobao.com.cn/api/open/v1/meta**
+
+⛔ 本服务器**不提供投递入口**（合规要求）—— 需要投递时请打开返回结果里的站内页面。
+
+---
+
 ## 🔌 数据管道：如何接入你自己的数据
 
 开源版自带演示数据。接数据有两种方式：

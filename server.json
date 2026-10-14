@@ -1,0 +1,17 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.kknee-dev/xiaozhaobao",
+  "title": "校招宝 · 中国校园招聘岗位数据",
+  "description": "中国校园招聘（秋招/春招/实习/提前批）在招岗位、企业档案、投递截止与求职攻略数据。免 API Key、免注册、只读。",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/kknee-dev/recruit-hub",
+    "source": "github"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://xiaozhaobao.com.cn/mcp"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "xiaozhaobao-campus-jobs",
+  "version": "1.0.0",
+  "description": "让 Gemini CLI 直接检索中国校园招聘数据（秋招/春招/实习/提前批）——在招岗位、企业档案、投递截止日期。免 API Key · 免注册 · 只读。",
+  "mcpServers": {
+    "xiaozhaobao": {
+      "httpUrl": "https://xiaozhaobao.com.cn/mcp"
+    }
+  }
+}
