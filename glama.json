@@ -1,4 +1,8 @@
 {
-  "$schema": "https://glama.ai/mcp/schemas/server.json",
-  "maintainers": ["kknee-dev"]
+  "$schema": "https://glama.ai/mcp/schemas/connector.json",
+  "maintainers": [
+    {
+      "email": "kknee@qq.com"
+    }
+  ]
 }
