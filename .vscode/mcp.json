@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "xiaozhaobao": {
+      "type": "http",
+      "url": "https://xiaozhaobao.com.cn/mcp"
+    }
+  }
+}

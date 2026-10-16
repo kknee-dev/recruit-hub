@@ -100,20 +100,31 @@ recruit-hub/
 
 ## 🤖 接入 AI 助手（MCP）—— 让 AI 直接回答中国校招问题
 
-校招宝提供 **MCP Server**（免 API Key · 免注册 · 只读），Claude、ChatGPT、Cursor、腾讯 WorkBuddy、Gemini CLI 等 AI 助手可直接检索全国在招校招岗位：
+[![Add to Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=xiaozhaobao&config=eyJ0eXBlIjoiaHR0cCIsInVybCI6Imh0dHBzOi8veGlhb3poYW9iYW8uY29tLmNuL21jcCJ9)
+
+校招宝提供 **MCP Server**（免 API Key · 免注册 · 只读），Claude、ChatGPT、Cursor、腾讯 WorkBuddy、Gemini CLI 等 AI 助手可直接检索全国在招校招岗位。
+
+**一键安装**：Cursor 用户点上方的 **Add to Cursor** 按钮即可。克隆本仓库后，根目录的 `.mcp.json` 与 `.vscode/mcp.json` 已就位，**Claude Code / VS Code Copilot 打开仓库即可直接使用**，无需手抄配置。
+
+手动配置（任意 MCP 客户端）：
 
 ```json
 {
   "mcpServers": {
-    "xiaozhaobao": { "url": "https://xiaozhaobao.com.cn/mcp" }
+    "xiaozhaobao": {
+      "type": "http",
+      "url": "https://xiaozhaobao.com.cn/mcp"
+    }
   }
 }
 ```
 
 | 客户端 | 配置方式 |
 |---|---|
-| **Claude Code** | `claude mcp add --transport http xiaozhaobao https://xiaozhaobao.com.cn/mcp` |
-| **Claude Desktop / Cursor** | 上面的 JSON 写入 `claude_desktop_config.json` 或 `~/.cursor/mcp.json` |
+| **Cursor** | 点上方 **Add to Cursor** 按钮，或写入 `~/.cursor/mcp.json` |
+| **Claude Code** | `claude mcp add --transport http xiaozhaobao https://xiaozhaobao.com.cn/mcp`（本仓库已含 `.mcp.json`） |
+| **Claude Desktop** | 上面的 JSON 写入 `claude_desktop_config.json` |
+| **VS Code (GitHub Copilot)** | 本仓库已含 `.vscode/mcp.json`；或在命令面板执行 `MCP: Add Server` |
 | **腾讯 WorkBuddy** | 同一段 JSON 写入 `~/.workbuddy/mcp.json`，再于连接器管理页点「信任」 |
 | **Gemini CLI** | 本仓库即扩展（`gemini-extension.json`），安装后自动加载远程 MCP 服务 |
 
@@ -204,6 +215,30 @@ cd recruit-hub
 # open http://localhost:3600
 ```
 Live demo: **https://xiaozhaobao.com.cn**
+
+### Use with AI assistants (MCP)
+
+This repo ships an MCP server — no API key, no sign-up, **read-only**:
+
+```json
+{
+  "mcpServers": {
+    "xiaozhaobao": {
+      "type": "http",
+      "url": "https://xiaozhaobao.com.cn/mcp"
+    }
+  }
+}
+```
+
+- **Cursor** — click the *Add to Cursor* badge above
+- **Claude Code** — `claude mcp add --transport http xiaozhaobao https://xiaozhaobao.com.cn/mcp`
+- **VS Code (Copilot)** — `.vscode/mcp.json` is already in this repo; just open the workspace
+- **Gemini CLI** — this repo *is* a Gemini CLI extension (`gemini-extension.json`)
+
+Tools (all read-only): `search_campus_jobs` · `get_job_detail` · `get_company_profile` · `list_urgent_deadlines` · `get_stats`
+
+The server intentionally exposes **no apply/application endpoints** — users complete applications on the original posting page.
 
 ### Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md). Issues and Discussions are welcome. Fork + PR (keep it zero-dependency).
