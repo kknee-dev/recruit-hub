@@ -1,0 +1,69 @@
+name: Version guard
+
+# 三个清单文件声称的版本，必须与 git tag 一致。
+#
+# 起因（2026-10-16 实测）：server.json / package.json / gemini-extension.json 都写着
+# version 1.0.0，而仓库里只有 v0.1.0 的 release —— 从 MCP Registry / Glama 点
+# 「查看源码」过来的人，会看到「对外声称的版本」与「仓库实际发布的版本」对不上。
+# 这个 workflow 让版本漂移在打 tag 的那一刻就被拦住，而不是靠人记得同步。
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "要校验的 tag，例如 v1.0.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  verify-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 1
+
+      - name: Compare manifest versions against the tag
+        env:
+          TAG_INPUT: ${{ github.event.inputs.tag }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          TAG="${TAG_INPUT:-$REF_NAME}"
+          EXPECTED="${TAG#v}"
+
+          if ! printf '%s' "$EXPECTED" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+'; then
+            echo "::error::tag '$TAG' 不是 vX.Y.Z 形式，无法校验"
+            exit 1
+          fi
+          echo "tag=$TAG  expected version=$EXPECTED"
+
+          fail=0
+          check() {
+            file="$1"; jqpath="$2"
+            if [ ! -f "$file" ]; then
+              echo "::warning::$file not found - skipped"
+              return
+            fi
+            got=$(jq -r "$jqpath" "$file" 2>/dev/null || echo '<parse-error>')
+            if [ "$got" != "$EXPECTED" ]; then
+              echo "::error file=$file::$file says version '$got', but tag $TAG implies $EXPECTED"
+              fail=1
+            else
+              echo "OK  $file -> $got"
+            fi
+          }
+
+          check server.json '.version'
+          check package.json '.version'
+          check gemini-extension.json '.version'
+
+          if [ "$fail" -ne 0 ]; then
+            echo "::error::版本不一致 - 请同步 server.json / package.json / gemini-extension.json 后再打 tag"
+          fi
+          exit $fail
