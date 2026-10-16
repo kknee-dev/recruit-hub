@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 使用文档 / MCP 接入说明
+    url: https://github.com/kknee-dev/recruit-hub#-接入-ai-助手mcp
+    about: 客户端配置、tool 清单与示例提问，先看这里
+  - name: 校招宝官网
+    url: https://xiaozhaobao.com.cn
+    about: 直接在网页上搜索岗位、查看企业档案

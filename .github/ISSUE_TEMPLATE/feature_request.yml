@@ -1,0 +1,29 @@
+name: 功能建议 / Feature request
+description: 希望新增的 tool、数据字段或接入方式
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你想解决什么问题？
+      description: 描述使用场景，而不是直接给方案——这能帮我们找到更合适的实现
+      placeholder: |
+        我在用 Claude 帮我做求职规划，希望它能按"网申截止日期"排序……
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望怎么做？（可选）
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: 边界确认
+      options:
+        - label: 我知道本项目**不提供**投递代操作接口（不暴露 apply_url / 内推码），投递必须由本人前往原始页面完成
+          required: true

@@ -1,0 +1,62 @@
+name: 数据问题 / Data issue
+description: 岗位过期、企业信息错误、链接失效、重复岗位等数据质量问题
+title: "[数据] "
+labels: ["data-quality"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢帮忙纠错！**请务必附上原始页面链接**，否则我们无法定位。
+        本仓库是校招宝（https://xiaozhaobao.com.cn）的数据与 MCP 服务端仓库。
+
+  - type: input
+    id: url
+    attributes:
+      label: 涉及页面链接
+      description: 校招宝站点上的岗位/企业详情页 URL，或上游原始招聘页 URL
+      placeholder: "https://xiaozhaobao.com.cn/jobs/xxxxx"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 问题类型
+      options:
+        - 岗位已过期 / 已截止
+        - 链接失效（404 / 打不开）
+        - 企业信息错误（名称、简介、logo）
+        - 重复岗位
+        - 字段缺失（薪资 / 城市 / 学历 / 截止日期）
+        - 岗位描述乱码或含无关内容
+        - 其它
+    validations:
+      required: true
+
+  - type: textarea
+    id: detail
+    attributes:
+      label: 问题描述
+      description: 现在显示的是什么？正确应该是什么？如有截图请一并粘贴
+      placeholder: |
+        现状：显示"清华大学"，实际应为"清华大学深圳国际研究生院"
+        证据：（粘贴截图或原文引用）
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: 权威来源（可选）
+      description: 能证明正确答案的权威链接，例如用人单位官网 / 官方公众号推文
+      placeholder: "https://..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 我确认提交的是公开可访问的信息，不包含任何个人隐私
+          required: true

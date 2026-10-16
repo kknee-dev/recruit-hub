@@ -1,0 +1,69 @@
+name: Bug 报告 / Bug report
+description: MCP 服务端、客户端接入、脚本或工作流的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: client
+    attributes:
+      label: 使用的客户端 / 环境
+      options:
+        - Claude Desktop
+        - Claude Code
+        - Cursor
+        - VS Code (GitHub Copilot)
+        - Gemini CLI
+        - 直接调用 HTTP 端点
+        - 其它（请在描述中说明）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: 涉及的 tool
+      options:
+        - search_campus_jobs
+        - get_job_detail
+        - get_company_profile
+        - list_urgent_deadlines
+        - get_stats
+        - 与具体 tool 无关（连接 / 初始化失败）
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 越具体越好；如能贴上你传入的参数或自然语言提问，会大幅加速定位
+      placeholder: |
+        1. 在 Cursor 中添加 MCP：https://xiaozhaobao.com.cn/mcp
+        2. 提问："帮我找上海 2026 届的算法岗"
+        3. 观察到……
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      description: 请粘贴完整的错误信息或响应（注意去掉任何个人令牌）
+    validations:
+      required: true
+
+  - type: input
+    id: endpoint_check
+    attributes:
+      label: 端点自检（可选）
+      description: 如果方便，请贴一下这个命令的输出
+      value: 'curl -s -X POST https://xiaozhaobao.com.cn/mcp -H "Content-Type: application/json" -d ''{"jsonrpc":"2.0","id":1,"method":"tools/list"}'''
+    validations:
+      required: false
