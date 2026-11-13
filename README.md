@@ -15,6 +15,7 @@
 [![零依赖](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/kknee-dev/recruit-hub)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![在招岗位](https://img.shields.io/badge/dynamic/json?url=https://xiaozhaobao.com.cn/api/meta&query=total&label=%E7%BA%BF%E4%B8%8A%E5%9C%A8%E6%8B%9B%E5%B2%97%E4%BD%8D&color=orange)](https://xiaozhaobao.com.cn)
+[![mcptry](https://mcptry.com/badge/cn.com.xiaozhaobao/xiaozhaobao)](https://mcptry.com/servers/cn.com.xiaozhaobao/xiaozhaobao)
 [![Stars](https://img.shields.io/github/stars/kknee-dev/recruit-hub?style=social)](https://github.com/kknee-dev/recruit-hub/stargazers)
 
 ---
