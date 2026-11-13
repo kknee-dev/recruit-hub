@@ -3,7 +3,15 @@
   "name": "cn.com.xiaozhaobao/xiaozhaobao",
   "title": "校招宝 · 中国校园招聘岗位数据",
   "description": "中国校园招聘（秋招/春招/实习/提前批）在招岗位、企业档案、投递截止与求职攻略数据。免 API Key、免注册、只读。",
-  "version": "1.0.0",
+  "version": "1.0.1",
+  "websiteUrl": "https://xiaozhaobao.com.cn",
+  "icons": [
+    {
+      "src": "https://xiaozhaobao.com.cn/icon-512.png",
+      "mimeType": "image/png",
+      "sizes": ["512x512"]
+    }
+  ],
   "repository": {
     "url": "https://github.com/kknee-dev/recruit-hub",
     "source": "github"
